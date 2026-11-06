@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VidCompare</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body data-theme="cinema">
+<div class="app">
+  <aside class="side">
+    <div class="brand">
+      <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true">
+        <rect x="2" y="6" width="17" height="20" rx="4" fill="none" stroke="currentColor" stroke-width="2.4"/>
+        <rect x="13" y="6" width="17" height="20" rx="4" fill="currentColor" opacity=".28"/>
+        <path d="M17 16l4.5 3v-6z" fill="currentColor"/>
+      </svg>
+      <span>VidCompare</span>
+    </div>
+    <nav class="nav" id="nav"></nav>
+    <div class="side-foot">
+      <div class="seg seg-small" id="theme-seg" role="group" aria-label="Apparence"></div>
+      <div class="status" id="ffmpeg-status"><i class="dot ok"></i><span>FFmpeg prêt</span></div>
+    </div>
+  </aside>
+  <main class="main" id="main"></main>
+</div>
+<script src="app.js"></script>
+</body>
+</html>

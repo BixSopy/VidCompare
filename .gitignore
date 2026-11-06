@@ -1,0 +1,10 @@
+﻿.venv/
+build_out/
+build_tmp/
+dist/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+.coverage
+*.spec

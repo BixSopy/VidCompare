@@ -1,0 +1,215 @@
+<title>Matrice Qualité Vidéo</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: une colonne par critère, du meilleur (haut) au moins bon (bas), défilement horizontal dans un cadre. */
+:root {
+  --bg: #f1f3f0;
+  --surface: #ffffff;
+  --fg: #14191b;
+  --muted: #5a6568;
+  --line: #d8ddd9;
+  --accent: #0b6e6e;
+  --s1: #0b6e6e;
+  --s2: #3a8a55;
+  --s3: #9a8520;
+  --s4: #b9622a;
+  --s5: #ab3535;
+  --font-body: "Schibsted Grotesk", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-data: "JetBrains Mono", ui-monospace, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0d1112; --surface: #151b1c; --fg: #e6ecea; --muted: #8f9b9a; --line: #263032;
+    --accent: #4fd1c5; --s1: #4fd1c5; --s2: #7fcb8e; --s3: #d9c358; --s4: #e8975a; --s5: #e26b6b;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0d1112; --surface: #151b1c; --fg: #e6ecea; --muted: #8f9b9a; --line: #263032;
+  --accent: #4fd1c5; --s1: #4fd1c5; --s2: #7fcb8e; --s3: #d9c358; --s4: #e8975a; --s5: #e26b6b;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 15px; line-height: 1.5;
+  padding-block: 28px 56px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.wrap { max-width: 1280px; margin: 0 auto; display: grid; gap: 22px; }
+header { display: grid; gap: 8px; }
+h1 { font-size: clamp(1.7rem, 4vw, 2.4rem); line-height: 1.1; margin: 0; letter-spacing: -0.02em; text-wrap: balance; }
+.lede { margin: 0; color: var(--muted); max-width: 68ch; }
+.bar { display: flex; flex-wrap: wrap; gap: 14px 22px; align-items: center; justify-content: space-between; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-family: var(--font-data); font-size: 12px; color: var(--muted); }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.dot { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
+.toggle { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; cursor: pointer; }
+.toggle input { accent-color: var(--accent); width: 16px; height: 16px; }
+.toggle input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.matrix { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+.cols { display: grid; grid-template-columns: repeat(6, minmax(250px, 1fr)); min-width: 1500px; }
+.col { min-width: 0; border-right: 1px solid var(--line); }
+.col:last-child { border-right: 0; }
+.col h2 {
+  margin: 0; padding: 14px 14px 12px; font-size: 12px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase;
+  border-bottom: 1px solid var(--line); background: var(--surface); position: sticky; top: 0;
+}
+.col h2 small { display: block; font-family: var(--font-data); font-weight: 400; letter-spacing: 0; text-transform: none; color: var(--muted); margin-top: 2px; font-size: 11.5px; }
+.ends { display: flex; justify-content: space-between; font-family: var(--font-data); font-size: 11px; color: var(--muted); padding: 6px 14px; border-bottom: 1px solid var(--line); }
+.item { padding: 11px 14px 12px; border-bottom: 1px solid var(--line); display: grid; gap: 5px; }
+.item:last-child { border-bottom: 0; }
+.top { display: flex; gap: 10px; align-items: baseline; }
+.rank { font-family: var(--font-data); font-size: 11px; color: var(--muted); width: 18px; flex: none; }
+.name { font-weight: 700; flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.score { font-family: var(--font-data); font-weight: 600; font-size: 13px; font-variant-numeric: tabular-nums; flex: none; }
+.meter { height: 5px; background: var(--line); border-radius: 3px; overflow: hidden; margin-left: 28px; }
+.meter i { display: block; height: 100%; border-radius: 3px; }
+.note { margin: 0 0 0 28px; font-size: 12.5px; color: var(--muted); line-height: 1.4; }
+.compact .note { display: none; }
+.compact .item { padding-block: 8px; }
+
+section.info { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 16px 18px; min-width: 0; }
+.card h3 { margin: 0 0 8px; font-size: 14px; letter-spacing: 0.02em; }
+.card p, .card li { margin: 0; font-size: 13.5px; color: var(--muted); }
+.card ul { margin: 0; padding-left: 18px; display: grid; gap: 6px; }
+.card a { color: var(--accent); text-underline-offset: 2px; }
+.card a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.card .strong { color: var(--fg); font-weight: 600; }
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>Matrice Qualité Vidéo</h1>
+    <p class="lede">Chaque colonne classe une caractéristique d'un fichier vidéo, du meilleur en haut au moins bon en bas. Les notes sur 100 sont le point de départ du futur logiciel de comparaison.</p>
+  </header>
+
+  <div class="bar">
+    <div class="legend" aria-label="Légende des niveaux">
+      <span><i class="dot" style="background:var(--s1)"></i>90–100 référence</span>
+      <span><i class="dot" style="background:var(--s2)"></i>75–89 très bon</span>
+      <span><i class="dot" style="background:var(--s3)"></i>55–74 correct</span>
+      <span><i class="dot" style="background:var(--s4)"></i>35–54 faible</span>
+      <span><i class="dot" style="background:var(--s5)"></i>0–34 mauvais</span>
+    </div>
+    <label class="toggle" for="compact"><input type="checkbox" id="compact"> Vue compacte (sans explications)</label>
+  </div>
+
+  <div class="matrix" id="matrix"><div class="cols" id="cols"></div></div>
+
+  <section class="info">
+    <div class="card">
+      <h3>Comment lire ces notes</h3>
+      <p>Les notes sont une proposition issue du consensus des guides communautaires. Il n'existe pas de standard officiel. Elles se règlent : chaque critère recevra un poids dans la note finale du logiciel.</p>
+    </div>
+    <div class="card">
+      <h3>Ce que la matrice ne dit pas</h3>
+      <ul>
+        <li><span class="strong">Le débit compte autant que l'étiquette.</span> Un « BluRay » très compressé peut être pire qu'un bon WEB-DL.</li>
+        <li><span class="strong">Remux contre encode :</span> certains disent qu'un bon encode égale un remux, d'autres qu'un ré-encodage ne peut qu'y perdre.</li>
+        <li><span class="strong">DV P7 contre P8.1 :</span> sur un écran Dolby Vision l'image est très proche. La différence tient surtout à la compatibilité.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>Sources consultées</h3>
+      <ul>
+        <li><a href="https://trash-guides.info/Radarr/Tips/How-to-order-Quality-Source/" target="_blank" rel="noopener">TRaSH Guides : ordre des sources</a></li>
+        <li><a href="https://trash-guides.info/Radarr/Radarr-collection-of-custom-formats" target="_blank" rel="noopener">TRaSH Guides : formats audio et HDR</a></li>
+        <li><a href="https://wikiwand.com/en/Pirated_movie_release_types" target="_blank" rel="noopener">Wikipédia : types de releases</a></li>
+        <li><a href="https://jellywatch.app/blog/jellyfin-dolby-vision-profiles-explained-5-7-8-direct-play-2026" target="_blank" rel="noopener">Profils Dolby Vision 5, 7 et 8</a></li>
+        <li><a href="https://www.tomsguide.com:443/news/hdr-for-tvs-explained-hdr10-vs-hdr10-vs-dolby-vision" target="_blank" rel="noopener">Tom's Guide : formats HDR</a></li>
+        <li><a href="https://www.cambridge.org/core/services/aop-cambridge-core/content/view/C1BEFBC1983E06BE4D67B239AC0F26A4/S2048770319000234a.pdf/a-comprehensive-video-codec-comparison.pdf" target="_blank" rel="noopener">Comparaison de codecs vidéo (Cambridge)</a></li>
+        <li><a href="https://engineering.fb.com/2018/04/10/video-engineering/av1-beats-x264-and-libvpx-vp9-in-practical-use-case/" target="_blank" rel="noopener">Meta : AV1 contre x264 et VP9</a></li>
+        <li><a href="https://checkplease.neocities.org/p/sound-formats-quick-reference" target="_blank" rel="noopener">Guide des formats sonores</a></li>
+      </ul>
+    </div>
+  </section>
+</div>
+
+<script>
+var DATA = [
+  { title: "Source", sub: "d'où vient le fichier", items: [
+    ["ISO / BDMV (disque complet)", 100, "Copie intégrale du disque, menus compris. Jusqu'à 100 Go en UHD."],
+    ["Remux", 98, "Vidéo et audio du disque sans recompression, rangés dans un MKV. Souvent autour de 30 Go."],
+    ["BluRay encode 2160p", 86, "Recompressé depuis le disque UHD. Dépend du débit et de l'encodeur."],
+    ["BluRay encode 1080p", 80, "Recompressé depuis le disque HD. L'audio HD est souvent abandonné."],
+    ["WEB-DL", 72, "Flux du service de streaming, DRM retiré, sans ré-encodage. Audio souvent avec perte."],
+    ["WEBRip", 60, "Flux capturé ou ré-encodé : un peu plus de pertes qu'un WEB-DL."],
+    ["HDTV", 45, "Capté à la télévision. Peut dépasser un DVD."],
+    ["DVD / DVDRip", 30, "Limité à 480p ou 576p."],
+    ["TS / TC (Telesync)", 10, "Enregistré en salle, son souvent pris à part."],
+    ["CAM", 3, "Filmé en salle. Image et son très faibles."]
+  ]},
+  { title: "Résolution", sub: "nombre de pixels", items: [
+    ["2160p (4K UHD)", 100, "3840×2160, quatre fois les pixels du 1080p."],
+    ["1080p (Full HD)", 72, "1920×1080."],
+    ["720p (HD)", 48, "1280×720."],
+    ["576p / 480p (DVD)", 26, "Définition standard."],
+    ["360p et moins", 8, "Qualité web ancienne."]
+  ]},
+  { title: "Codec vidéo", sub: "efficacité à débit égal", items: [
+    ["AV1", 94, "Très efficace. Encore rare, demande un décodage matériel récent."],
+    ["HEVC / H.265 (x265)", 90, "Standard du 4K HDR, bien plus efficace que le H.264."],
+    ["VP9", 78, "Surtout utilisé par YouTube."],
+    ["AVC / H.264 (x264)", 70, "Très compatible, moins efficace."],
+    ["VC-1", 52, "Ancien codec présent sur certains Blu-ray."],
+    ["MPEG-2", 38, "DVD et télévision ancienne."],
+    ["XviD / DivX", 18, "Années 2000."]
+  ]},
+  { title: "HDR", sub: "plage dynamique et couleurs", items: [
+    ["Dolby Vision P7 (disque)", 100, "Double couche des disques UHD, avec base HDR10."],
+    ["Dolby Vision P8.1", 95, "Couche unique avec base HDR10. Le plus compatible."],
+    ["HDR10+", 86, "Métadonnées dynamiques, format ouvert."],
+    ["HDR10", 78, "Base que tous les écrans HDR lisent."],
+    ["Dolby Vision P5", 66, "Sans base HDR10 : couleurs fausses sur un écran sans Dolby Vision."],
+    ["HLG", 60, "HDR de télévision, au-dessus du SDR."],
+    ["SDR", 30, "Pas de HDR."]
+  ]},
+  { title: "Audio", sub: "codec", items: [
+    ["TrueHD Atmos", 100, "Sans perte, avec sons en hauteur."],
+    ["DTS:X", 98, "Sans perte, avec sons en hauteur."],
+    ["LPCM", 95, "Non compressé, très lourd."],
+    ["Dolby TrueHD", 92, "Sans perte."],
+    ["DTS-HD MA", 91, "Sans perte."],
+    ["FLAC", 88, "Sans perte, courant en 2.0 ou 5.1."],
+    ["DD+ Atmos (E-AC3)", 80, "Atmos compressé, courant en streaming."],
+    ["DTS-HD HRA", 76, "Haute résolution avec perte."],
+    ["DD+ (E-AC3)", 70, "Dépend du débit."],
+    ["DTS (core)", 60, "Environ 768 ou 1509 kb/s."],
+    ["AC3 (Dolby Digital)", 55, "Correct vers 640 kb/s."],
+    ["AAC", 40, "Plutôt pour stéréo et mobiles."],
+    ["MP3", 20, "Très ancien."]
+  ]},
+  { title: "Canaux audio", sub: "nombre de pistes de son", items: [
+    ["7.1 et plus", 100, "Enceintes arrière et latérales."],
+    ["5.1", 86, "Standard cinéma maison."],
+    ["2.0 (stéréo)", 50, "Deux canaux."],
+    ["1.0 (mono)", 20, "Un seul canal."]
+  ]}
+];
+
+function tier(s) { return s >= 90 ? "var(--s1)" : s >= 75 ? "var(--s2)" : s >= 55 ? "var(--s3)" : s >= 35 ? "var(--s4)" : "var(--s5)"; }
+function esc(t) { return String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;"); }
+
+var html = "";
+DATA.forEach(function (c) {
+  html += '<div class="col"><h2>' + esc(c.title) + '<small>' + esc(c.sub) + '</small></h2>' +
+          '<div class="ends"><span>▲ meilleur</span><span>' + c.items.length + ' niveaux</span></div>';
+  c.items.forEach(function (it, i) {
+    html += '<div class="item"><div class="top"><span class="rank">' + (i + 1) + '</span>' +
+            '<span class="name">' + esc(it[0]) + '</span>' +
+            '<span class="score" style="color:' + tier(it[1]) + '">' + it[1] + '</span></div>' +
+            '<div class="meter" aria-hidden="true"><i style="width:' + it[1] + '%;background:' + tier(it[1]) + '"></i></div>' +
+            '<p class="note">' + esc(it[2]) + '</p></div>';
+  });
+  html += '</div>';
+});
+document.getElementById("cols").innerHTML = html;
+
+var box = document.getElementById("compact");
+var matrix = document.getElementById("matrix");
+box.addEventListener("change", function () { matrix.classList.toggle("compact", box.checked); });
+</script>
