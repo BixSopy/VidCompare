@@ -9,7 +9,7 @@ Remove-Item $out, $tmp -Recurse -Force -ErrorAction SilentlyContinue
 New-Item -ItemType Directory $out, $tmp | Out-Null
 
 $py = if (Test-Path ".venv\Scripts\python.exe") { ".venv\Scripts\python.exe" } else { "python" }
-& $py -m PyInstaller --noconfirm --windowed --name VidCompare `
+& $py -m PyInstaller --noconfirm --windowed --name VidCompare --icon "$rootssets\icon.ico" `
     --distpath "$out\dist" --workpath "$tmp\work" --specpath $tmp --paths $root `
     --add-data "$root\ui;ui" --add-data "$root\vidcompare\locales;vidcompare\locales" `
     --collect-all webview --collect-all pythonnet --collect-all clr_loader `
