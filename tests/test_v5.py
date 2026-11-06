@@ -114,7 +114,7 @@ def test_unexpected_error_is_returned_and_logged(api, monkeypatch):
 
 def test_state_carries_the_version(api):
     from vidcompare import __version__
-    assert api.get_state()["version"] == __version__ == "6.1.0"
+    assert api.get_state()["version"] == __version__ == "6.1.1"
 
 
 def test_old_temp_folders_are_swept(tmp_path, monkeypatch):

@@ -1,5 +1,8 @@
 # Changelog
 
+## 6.1.1
+- Installer: no nested winget during a silent install (winget package). Screenshots and project web page. Direct links to views (`#settings`).
+
 ## 6.1.0
 - Update check: banner when a newer release exists on GitHub. Once a day at launch, or on demand in Settings > Updates. Can be turned off.
 

@@ -36,6 +36,7 @@
   const NAV = ["compare", "library", "history", "settings"];
 
   const ui = { view: "compare", lib: "rank", open: {}, animate: true, lastKey: "" };
+  { const h = location.hash.slice(1); if (["compare", "library", "history", "settings"].includes(h)) ui.view = h; }   // lien direct vers une vue
   let S = null;            // dernier état reçu du moteur
 
   /* ---------- liaison avec le moteur ---------- */

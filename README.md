@@ -6,6 +6,8 @@ Compare the quality of two video files, torrents, magnet links or pasted MediaIn
 
 Everything runs on your PC. No file is uploaded. The only network request is an optional daily check for a newer version, which you can turn off ([privacy](PRIVACY.md)).
 
+![VidCompare comparing a 2160p Remux with a 1080p WEB-DL](docs/img/compare-en.png)
+
 ## What it looks at
 
 Source (Remux, BluRay, WEB-DL...), resolution, video bitrate and codec, HDR (HDR10, HDR10+, Dolby Vision), audio format and channels (TrueHD Atmos, DTS-HD MA...), and what your hardware can actually play. It also flags suspicious files: a "Remux" with a low bitrate, a "4K" that is upscaled, a missing audio track.

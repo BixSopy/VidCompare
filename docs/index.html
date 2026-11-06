@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VidCompare: which video file is the better one?</title>
+<meta name="description" content="Free, open-source Windows tool. Compare two video files, torrents or MediaInfo reports and get a quality score out of 100. HDR, Dolby Vision, Atmos, Remux. Runs locally, 10 languages.">
+<meta property="og:title" content="VidCompare">
+<meta property="og:description" content="Compare the quality of two video files and get a score out of 100. Local, private, open source.">
+<meta property="og:image" content="https://bixsopy.github.io/VidCompare/img/compare-en.png">
+<style>
+:root { --bg:#0b0f14; --card:#121922; --line:#233040; --text:#e8eef5; --muted:#9db0c3; --accent:#2dd4a7; }
+@media (prefers-color-scheme: light) { :root { --bg:#f6f8fa; --card:#fff; --line:#d5dde6; --text:#13202d; --muted:#4b5f73; --accent:#0a8f6c; } }
+* { box-sizing: border-box; }
+body { margin:0; background:var(--bg); color:var(--text); font:17px/1.6 "Segoe UI", system-ui, sans-serif; }
+main { max-width: 1000px; margin: 0 auto; padding: 0 20px 64px; }
+header { padding: 64px 0 28px; text-align: center; }
+h1 { font-size: clamp(34px, 6vw, 56px); margin: 0 0 12px; letter-spacing: -.02em; }
+.lead { color: var(--muted); max-width: 640px; margin: 0 auto 28px; font-size: 19px; }
+.cta { display: inline-flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
+a.btn { display: inline-block; padding: 13px 24px; border-radius: 12px; background: var(--accent); color: #04110d; font-weight: 650; text-decoration: none; }
+a.btn.alt { background: transparent; color: var(--text); border: 1px solid var(--line); }
+img.shot { width: 100%; border-radius: 16px; border: 1px solid var(--line); display: block; margin: 36px 0; }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; margin: 28px 0; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 22px; }
+.card h3 { margin: 0 0 6px; font-size: 18px; }
+.card p { margin: 0; color: var(--muted); font-size: 15.5px; }
+h2 { margin: 48px 0 8px; font-size: 28px; }
+code, pre { background: var(--card); border: 1px solid var(--line); border-radius: 8px; font: 15px Consolas, monospace; }
+code { padding: 2px 6px; } pre { padding: 14px 18px; overflow-x: auto; }
+footer { color: var(--muted); font-size: 14.5px; text-align: center; margin-top: 56px; }
+footer a { color: var(--muted); }
+.fr { margin-top: 48px; padding-top: 24px; border-top: 1px solid var(--line); }
+</style>
+</head>
+<body>
+<main>
+<header>
+  <h1>VidCompare</h1>
+  <p class="lead">Two video files. Which one is better? Get a score out of 100 for each, and the reasons why. Free, open source, runs on your PC.</p>
+  <div class="cta">
+    <a class="btn" href="https://github.com/BixSopy/VidCompare/releases/latest">Download for Windows</a>
+    <a class="btn alt" href="https://github.com/BixSopy/VidCompare">Source code</a>
+  </div>
+</header>
+
+<img class="shot" src="img/compare-en.png" alt="VidCompare comparing a 2160p Remux with a 1080p WEB-DL: verdict, score rings and the main reasons">
+
+<div class="grid">
+  <div class="card"><h3>Understands your files</h3><p>Source (Remux, BluRay, WEB-DL), resolution, bitrate, codec, HDR10, HDR10+, Dolby Vision, TrueHD Atmos, DTS-HD and channels.</p></div>
+  <div class="card"><h3>Catches fakes</h3><p>A "Remux" with a low bitrate, a 4K that is upscaled, a missing audio track, mismatched names.</p></div>
+  <div class="card"><h3>Fits your setup</h3><p>Tell it your TV and sound system. Formats your hardware cannot play are scored down.</p></div>
+  <div class="card"><h3>Optional VMAF</h3><p>Compare real frames side by side and measure similarity with Netflix's VMAF metric.</p></div>
+  <div class="card"><h3>Library mode</h3><p>Rank a whole folder and see which movies or seasons would gain the most from a better version.</p></div>
+  <div class="card"><h3>10 languages</h3><p>English, 中文, हिन्दी, Español, العربية, Français, বাংলা, Português, Русский, Bahasa Indonesia.</p></div>
+</div>
+
+<h2>Private by design</h2>
+<p>Nothing leaves your computer. No account, no telemetry. The only network request is an optional once-a-day check for a newer version, which you can turn off. <a href="https://github.com/BixSopy/VidCompare/blob/main/PRIVACY.md">Privacy details</a>.</p>
+
+<h2>Install</h2>
+<p>Windows 10 or 11, 64-bit. Download the installer from <a href="https://github.com/BixSopy/VidCompare/releases/latest">Releases</a>, or with winget once available:</p>
+<pre>winget install BixSopy.VidCompare</pre>
+<p>FFmpeg is required to read videos (<code>winget install Gyan.FFmpeg</code>). The installer can do it for you. The app is not code-signed yet, so Windows SmartScreen may show a warning: choose "More info", then "Run anyway".</p>
+
+<h2>Honest limits</h2>
+<p>Scores are estimates from file metadata, not a perceptual measurement. Torrent and magnet scores are guesses from the name and size. VidCompare reads names and sizes only: it does not search for, download or share anything. Translations are machine-made and need native review: <a href="https://github.com/BixSopy/VidCompare/blob/main/CONTRIBUTING.md#translations">help fix them</a>.</p>
+
+<section class="fr" lang="fr">
+  <h2>En français</h2>
+  <p>VidCompare compare la qualité de deux fichiers vidéo, torrents ou rapports MediaInfo, et donne une note sur 100 à chacun. Gratuit, libre (MIT), 100 % local. <a href="https://github.com/BixSopy/VidCompare/releases/latest">Télécharger</a> · <a href="https://github.com/BixSopy/VidCompare/blob/main/README.fr.md">Documentation</a></p>
+</section>
+
+<footer>MIT license · <a href="https://github.com/BixSopy/VidCompare/issues">Report a bug</a> · <a href="https://github.com/BixSopy/VidCompare/blob/main/THIRD_PARTY_NOTICES.md">Third-party notices</a></footer>
+</main>
+</body>
+</html>

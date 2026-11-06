@@ -30,8 +30,8 @@ Name: "ru"; MessagesFile: "compiler:Languages\Russian.isl"
 
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; Flags: unchecked
-Name: "ffmpeg"; Description: "Install FFmpeg (needed to read videos) with winget"; Check: NeedFFmpeg
-Name: "webview2"; Description: "Install Microsoft WebView2 (needed to show the window) with winget"; Check: NeedWebView2
+Name: "ffmpeg"; Description: "Install FFmpeg (needed to read videos) with winget"; Check: NeedFFmpegAsk
+Name: "webview2"; Description: "Install Microsoft WebView2 (needed to show the window) with winget"; Check: NeedWebView2Ask
 
 [Files]
 Source: "{#SourceDir}\*"; DestDir: "{app}"; Flags: recursesubdirs createallsubdirs ignoreversion
@@ -57,4 +57,15 @@ var V: String;
 begin
   Result := not (RegQueryStringValue(HKLM, 'SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}', 'pv', V)
     or RegQueryStringValue(HKCU, 'Software\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}', 'pv', V));
+end;
+
+{ En installation silencieuse (winget), on ne lance pas de winget imbriqué : les dépendances sont déclarées dans le manifeste. }
+function NeedFFmpegAsk: Boolean;
+begin
+  Result := (not WizardSilent) and NeedFFmpeg;
+end;
+
+function NeedWebView2Ask: Boolean;
+begin
+  Result := (not WizardSilent) and NeedWebView2;
 end;
