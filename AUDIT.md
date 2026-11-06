@@ -5,6 +5,13 @@ les fonctions qui seraient utiles. Chaque chiffre vient d'une mesure faite sur c
 AMD Radeon RX 6700, FFmpeg 9.0.2 « full »). Les affirmations venant d'Internet sont suivies de leur source
 et marquées « à vérifier » quand la source est faible (forums, blogs).
 
+## Suivi : V5 faite le 6 novembre 2026
+
+Traités dans la V5 : constats 1 à 8 du résumé, P1, P2, P3, P5, P7 (section 4), Q6, Q8, Q9 (section 3),
+D1 à D4 (section 5), F2 (section 6), plus la réserve HDR du VMAF. Les tests d'intégration avec un vrai
+FFmpeg sont ajoutés. Restent pour la suite : P4 (VMAF au modèle 4K), P6 (poids de `bin`), P8, Q1 pour `cli.py`,
+Q2 et Q3 (simplification du code), Q5, Q7, Q10, D5 à D9, F1, F3 à F13.
+
 ## 1. Résumé
 
 VidCompare est sain : 80 tests passent, aucune faille de sécurité moyenne ou haute n'a été trouvée, le

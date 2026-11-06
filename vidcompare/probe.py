@@ -45,14 +45,20 @@ def run_ffprobe(target: str, ffprobe: str | None = None) -> dict:
             "ffprobe est introuvable. Installez FFmpeg (winget install Gyan.FFmpeg) "
             "ou indiquez l'emplacement de ffprobe.exe.")
     data = _run([exe, "-v", "error", "-print_format", "json",
-                 "-show_format", "-show_streams", target])
-    # Le HDR10+ n'apparaît que dans les métadonnées de la première image.
-    try:
-        frames = _run([exe, "-v", "error", "-print_format", "json", "-select_streams", "v:0",
-                       "-show_frames", "-read_intervals", "%+#1", target])
-        data["_first_frame"] = (frames.get("frames") or [{}])[0]
-    except (FFprobeError, subprocess.TimeoutExpired, json.JSONDecodeError):
-        data["_first_frame"] = {}
+                 "-show_format", "-show_streams", "-show_chapters", target])
+    data["_first_frame"] = {}
+    # Le HDR10+ n'apparaît que dans les métadonnées de la première image, et seulement sur une vidéo
+    # en PQ (HDR10). Les autres vidéos, la grande majorité, n'ont pas besoin du second appel : il
+    # doublait le temps de lecture de chaque fichier.
+    video = next((s for s in data.get("streams", []) if s.get("codec_type") == "video"
+                  and not (s.get("disposition") or {}).get("attached_pic")), None)
+    if video and video.get("color_transfer") == "smpte2084":
+        try:
+            frames = _run([exe, "-v", "error", "-print_format", "json", "-select_streams", "v:0",
+                           "-show_frames", "-read_intervals", "%+#1", target])
+            data["_first_frame"] = (frames.get("frames") or [{}])[0]
+        except (FFprobeError, subprocess.TimeoutExpired, json.JSONDecodeError):
+            pass
     return data
 
 
@@ -187,6 +193,7 @@ def parse_probe(data: dict, path: str, size: int = 0) -> MediaInfo:
             language=tags.get("language"), title=tags.get("title"), lossless=lossless))
     info.subtitle_langs = [(s.get("tags") or {}).get("language") or "?"
                            for s in streams if s.get("codec_type") == "subtitle"]
+    info.chapters = [t for t in (_num(c.get("start_time")) for c in data.get("chapters") or []) if t is not None]
 
     if video:
         info.video_codec = (video.get("codec_name") or "").lower() or None

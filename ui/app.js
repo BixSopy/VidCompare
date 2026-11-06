@@ -38,10 +38,15 @@
   }
   async function act(name, ...args) { const s = await call(name, ...args); if (s && s.slots) setState(s); return s; }
 
+  let lastSig = "";
   function setState(s) {
+    if (s.toast) toast(s.toast);
+    // Rien n'a changé (cas du rafraîchissement automatique) : on ne redessine pas la page.
+    const { toast: _t, ...rest } = s, sig = JSON.stringify(rest);
+    if (S && sig === lastSig) return;
+    lastSig = sig;
     const main = $("#main"), top = main ? main.scrollTop : 0;
     S = s;
-    if (s.toast) toast(s.toast);
     const key = s.result ? JSON.stringify([s.result.total, s.slots.A && s.slots.A.name, s.slots.B && s.slots.B.name]) : "";
     if (key !== ui.lastKey) { ui.lastKey = key; ui.animate = true; }
     render();
@@ -59,17 +64,24 @@
     clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove("show"), 6000);
   }
   function modal({ title, hint = "", body, ok = "Valider", onOk, wide = false }) {
-    const back = document.createElement("div");
+    const back = document.createElement("div"), opener = document.activeElement, id = "m" + Date.now();
     back.className = "modal-back";
-    back.innerHTML = `<div class="modal ${wide ? "wide" : ""}" role="dialog" aria-modal="true" aria-label="${esc(title)}">
-      <h2 class="section-title">${esc(title)}</h2>${hint ? `<p class="section-sub">${esc(hint)}</p>` : ""}
+    back.innerHTML = `<div class="modal ${wide ? "wide" : ""}" role="dialog" aria-modal="true" aria-labelledby="${id}-t" ${hint ? `aria-describedby="${id}-h"` : ""}>
+      <h2 class="section-title" id="${id}-t">${esc(title)}</h2>${hint ? `<p class="section-sub" id="${id}-h">${esc(hint)}</p>` : ""}
       <div class="modal-body">${body}</div>
       <div class="modal-actions"><button class="btn" data-m="cancel">Annuler</button><button class="btn primary" data-m="ok">${esc(ok)}</button></div></div>`;
     document.body.appendChild(back);
-    const close = () => back.remove();
+    // Le reste de la page devient inerte : le clavier et les lecteurs d'écran restent dans la fenêtre.
+    const app = $(".app"); if (app) app.setAttribute("inert", "");
+    const close = () => {
+      back.remove();
+      if (!$(".modal-back") && app) app.removeAttribute("inert");
+      if (opener && opener.isConnected && opener.focus) opener.focus();     // le focus revient au bouton d'origine
+    };
+    back._close = close;
     back.addEventListener("click", (e) => { if (e.target === back || e.target.dataset.m === "cancel") close(); });
     $('[data-m="ok"]', back).addEventListener("click", async () => { if ((await onOk(back)) !== false) close(); });
-    const first = $("textarea, input", back); if (first) first.focus();
+    const first = $("textarea, input", back) || $('[data-m="ok"]', back); first.focus();
     return back;
   }
   const textModal = (title, hint, placeholder, ok, onOk, multiline = false) => modal({
@@ -130,7 +142,7 @@
     const v = r.visual;
     return `<p class="section-sub" style="margin-bottom:18px">${esc(v.hint)}</p>
       <div class="visual-actions"><button class="btn" data-act="frames" ${v.available && !v.busy ? "" : "disabled"}>Voir les images côte à côte</button>
-        <button class="btn" data-act="vmaf" ${v.available && !v.busy ? "" : "disabled"}>Mesurer la ressemblance (VMAF)</button></div>
+        <button class="btn" data-act="vmaf" title="VMAF : mesure de Netflix qui note de 0 à 100 à quel point une vidéo ressemble à une autre" ${v.available && !v.busy ? "" : "disabled"}>Mesurer la ressemblance (VMAF)</button></div>
       ${v.text ? `<div class="visual-result ${v.error ? "err" : ""}">${v.busy ? spinner(v.text) : esc(v.text)}</div>` : ""}`;
   }
   function result() {
@@ -150,6 +162,8 @@
       <div class="verdict"><div class="verdict-kicker">Verdict</div><div class="verdict-title">${title}</div>
         <div class="verdict-gap">${w === "égalité" ? "" : "+"}${fmt(r.gap)}<small>points</small></div>
         ${r.sizeNote ? `<p class="verdict-note">${esc(r.sizeNote)}</p>` : ""}</div>${sc("B")}</div>
+      ${r.versions.length ? `<div class="notice ${r.versionsBlock ? "alert" : ""}" role="note"><div class="notice-title">${r.versionsBlock ? "Ces deux fichiers ne semblent pas être le même montage" : "À savoir avant de comparer l'image"}</div>
+        <ul>${r.versions.map((x) => `<li>${esc(x.text)}</li>`).join("")}</ul></div>` : ""}
       ${r.partial ? `<p class="file-meta" style="margin-top:14px">Comparaison partielle : certains critères n'ont pas pu être évalués pour les deux fichiers (torrent ou magnet estimé, rapport collé ou disque illisible).</p>` : ""}</section>
     ${r.reasons.length ? `<section class="section"><h2 class="section-title">Les raisons principales</h2><p class="section-sub">Ce qui pèse le plus dans l'écart.</p>
       <div class="reasons">${r.reasons.map((x) => `<div class="card reason"><div class="reason-top"><span class="reason-label">${esc(x.label)}</span><span class="reason-pts ${x.who === "B" ? "b" : ""}">${x.who} +${fmt(x.points)}</span></div><p>${esc(x.text)}</p></div>`).join("")}</div></section>` : ""}
@@ -195,7 +209,8 @@
       <div class="gainbar"><div class="gain-num"><span>${fmt(x.now)} → ${fmt(x.target)}</span><span class="big">+${fmt(x.gain)}</span></div>
         <div class="track"><div class="ghost" style="width:${x.target}%"></div><div class="now" style="width:${x.now}%;background:${tier(x.now)}"></div></div>
         <span class="file-meta">${esc(x.size)}</span></div></div>`;
-    const scan = L.scan ? `<div class="banner" style="display:block"><div class="row-between"><span>${spinner(`Analyse : ${L.scan.done} / ${L.scan.total} fichiers${L.scan.cached ? ` (${L.scan.cached} déjà en mémoire)` : ""}`)}</span><button class="btn small" data-act="up-cancel">Annuler</button></div>
+    const more = (kind, left) => (left > 0 ? `<div style="margin-top:16px;text-align:center"><button class="btn" data-act="up-more" data-kind="${kind}">Afficher plus (${left} restant${left > 1 ? "s" : ""})</button></div>` : "");
+    const scan = L.scan ?`<div class="banner" style="display:block"><div class="row-between"><span>${spinner(`Analyse : ${L.scan.done} / ${L.scan.total} fichiers${L.scan.cached ? ` (${L.scan.cached} déjà en mémoire)` : ""}`)}</span><button class="btn small" data-act="up-cancel">Annuler</button></div>
       <div class="track" style="margin-top:12px"><div class="fill" style="width:${L.scan.total ? (100 * L.scan.done) / L.scan.total : 0}%;background:var(--accent)"></div></div></div>` : "";
     return `<div class="folders">${L.folders.map((f) => `<span class="folder">${esc(f)}<button aria-label="Retirer ${esc(f)}" data-act="up-remove" data-path="${esc(f)}">×</button></span>`).join("")}
         <button class="btn small" data-act="up-add">${ICON.plus}Ajouter un dossier</button></div>
@@ -203,10 +218,10 @@
         <select class="sel" id="lvl" data-act="up-level">${L.levels.map((l) => `<option ${l === L.level ? "selected" : ""}>${esc(l)}</option>`).join("")}</select>
         <button class="btn primary" data-act="up-scan" ${L.scan ? "disabled" : ""}>Analyser les dossiers</button></div>
       <div class="banner"><b>À viser</b><span>${esc(L.wanted)}</span>${L.summary ? `<span class="file-meta">· ${esc(L.summary)}</span>` : ""}</div>${scan}
-      ${L.hasResults ? `<div class="section" style="margin-top:36px"><h2 class="section-title">Films à améliorer <span class="file-meta">(${L.films.length})</span></h2>
-        <p class="section-sub">Du plus gros gain possible au plus petit.</p><div class="list">${L.films.map(card).join("") || '<div class="card empty"><p>Rien à améliorer à ce niveau.</p></div>'}</div></div>
-        <div class="section" style="margin-top:40px"><h2 class="section-title">Séries à améliorer <span class="file-meta">(${L.series.length} saison${L.series.length > 1 ? "s" : ""})</span></h2>
-        <p class="section-sub">Une ligne par saison.</p><div class="list">${L.series.map(card).join("") || '<div class="card empty"><p>Rien à améliorer à ce niveau.</p></div>'}</div></div>
+      ${L.hasResults ? `<div class="section" style="margin-top:36px"><h2 class="section-title">Films à améliorer <span class="file-meta">(${L.filmsTotal})</span></h2>
+        <p class="section-sub">Du plus gros gain possible au plus petit.</p><div class="list">${L.films.map(card).join("") || '<div class="card empty"><p>Rien à améliorer à ce niveau.</p></div>'}</div>${more("films", L.filmsTotal - L.films.length)}</div>
+        <div class="section" style="margin-top:40px"><h2 class="section-title">Séries à améliorer <span class="file-meta">(${L.seriesTotal} saison${L.seriesTotal > 1 ? "s" : ""})</span></h2>
+        <p class="section-sub">Une ligne par saison.</p><div class="list">${L.series.map(card).join("") || '<div class="card empty"><p>Rien à améliorer à ce niveau.</p></div>'}</div>${more("series", L.seriesTotal - L.series.length)}</div>
         <div style="margin-top:24px"><button class="btn small" data-act="up-export">Exporter la liste (CSV)</button></div>`
       : `<div class="card empty" style="margin-top:28px"><p class="drop-title">Aucune analyse pour l'instant</p><p>Ajoutez vos dossiers de films et de séries, puis lancez l'analyse. Le logiciel indique quoi viser, pas où le trouver.</p></div>`}`;
   }
@@ -245,6 +260,8 @@
         <section class="card panel"><h3>Torrents et magnets</h3><p class="hint">Durée supposée du film, pour estimer le débit d'après la taille.</p>
           <div class="field"><span>Durée</span><div class="stepper"><button data-act="runtime" data-d="-10" aria-label="Moins">−</button><span class="num">${s.runtime} min</span><button data-act="runtime" data-d="10" aria-label="Plus">+</button></div></div>
           ${S.ffmpeg.ok ? "" : `<div class="field" style="margin-top:22px"><span>ffprobe introuvable</span><button class="btn small" data-act="pick-ffprobe">Indiquer ffprobe.exe</button></div>`}</section>
+        <section class="card panel" style="grid-column:1/-1"><div class="row-between"><div><h3>Diagnostic</h3><p class="hint" style="margin-bottom:0">VidCompare ${esc(S.version)}. Si quelque chose ne marche pas, le journal des erreurs aide à comprendre pourquoi.</p></div>
+          <button class="btn small" data-act="open-log">Ouvrir le dossier du journal</button></div></section>
         <section class="card panel" style="grid-column:1/-1"><div class="row-between"><div><h3>Réputation des groupes</h3><p class="hint" style="margin-bottom:0">Un bonus ou un malus de -10 à +10 points. Vide au départ : le logiciel ne juge aucun groupe à votre place.</p></div>
           <button class="btn small" data-act="group-add">${ICON.plus}Ajouter un groupe</button></div>
           <div style="margin-top:14px">${s.groups.length ? s.groups.map(([g, v]) => `<div class="group-row"><span>${esc(g)}</span><span class="row-actions"><span class="stepper small"><button data-act="group-step" data-name="${esc(g)}" data-v="${v}" data-d="-1" aria-label="Moins">−</button><span class="num ${v >= 0 ? "pos" : "neg"}">${v > 0 ? "+" : ""}${v}</span><button data-act="group-step" data-name="${esc(g)}" data-v="${v}" data-d="1" aria-label="Plus">+</button></span><button class="btn small danger" data-act="group-remove" data-name="${esc(g)}">Retirer</button></span></div>`).join("") : `<p class="file-meta">Aucun groupe pour l'instant.</p>`}</div></section>
@@ -258,6 +275,7 @@
     document.body.dataset.theme = S.theme === "oled" ? "oled" : "cinema";
     $("#nav").innerHTML = NAV.map(([id, label]) => `<button data-act="nav" data-v="${id}" ${ui.view === id ? 'aria-current="page"' : ""}>${ICON[id]}<span>${label}</span></button>`).join("");
     $("#theme-seg").innerHTML = [["cinema", "Cinéma"], ["oled", "OLED"]].map(([v, l]) => `<button aria-pressed="${v === S.theme}" data-act="theme-set" data-v="${v}">${l}</button>`).join("");
+    $("#version").textContent = "Version " + S.version;
     $("#ffmpeg-status").innerHTML = S.ffmpeg.ok ? `<i class="dot ok"></i><span>FFmpeg prêt</span>` : `<i class="dot bad"></i><span>FFmpeg introuvable</span>`;
     const banner = S.ffmpeg.ok ? "" : `<div class="warn-banner"><span>FFmpeg (ffprobe) est introuvable : les vidéos ne pourront pas être lues. Installez-le avec « winget install Gyan.FFmpeg » ou indiquez ffprobe.exe.</span><button class="btn small" data-act="pick-ffprobe">Indiquer ffprobe.exe</button></div>`;
     const main = $("#main");
@@ -278,7 +296,7 @@
     if (!r || !r.ok) { toast((r && r.error) || "Images indisponibles."); return; }
     let i = 0;
     const m = modal({ title: "Images côte à côte", hint: `A : ${r.nameA}   ·   B : ${r.nameB}`, ok: "Fermer", wide: true, onOk: () => true,
-      body: `<div class="gallery"><img alt="Image comparée, A à gauche et B à droite"><div class="gallery-nav"><button class="btn small" data-g="-1">◀ Précédente</button><span class="file-meta" id="g-cap"></span><button class="btn small" data-g="1">Suivante ▶</button></div><p class="file-meta">Les images HDR sont converties en SDR pour être comparables.</p></div>` });
+      body: `${(r.warnings || []).map((w) => `<p class="file-meta ${w.level === "alert" ? "err" : ""}">${esc(w.text)}</p>`).join("")}<div class="gallery"><img alt="Image comparée, A à gauche et B à droite"><div class="gallery-nav"><button class="btn small" data-g="-1">◀ Précédente</button><span class="file-meta" id="g-cap"></span><button class="btn small" data-g="1">Suivante ▶</button></div><p class="file-meta">Les images HDR sont converties en SDR pour être comparables.</p></div>` });
     $('[data-m="cancel"]', m).remove();
     const show = () => { $("img", m).src = r.frames[i].src; const t = r.frames[i].t; $("#g-cap", m).textContent = `Image ${i + 1} sur ${r.frames.length} · à ${Math.floor(t / 60)} min ${String(t % 60).padStart(2, "0")} s`; };
     m.addEventListener("click", (e) => { const g = e.target.closest("[data-g]"); if (g) { i = (i + Number(g.dataset.g) + r.frames.length) % r.frames.length; show(); } });
@@ -296,7 +314,15 @@
     if (a === "report") return textModal("Rapport MediaInfo", "Collez le rapport complet (vue Texte, en français ou en anglais). On le trouve souvent dans la fiche d'un torrent : le fichier n'est pas lu.", "General\nComplete name : …\n\nVideo\nFormat : HEVC\n…", "Analyser ce rapport", (v) => act("set_report", tag, v), true);
     if (a === "clear") return act("clear_slot", tag);
     if (a === "frames") return openFrames();
-    if (a === "vmaf") return act("run_vmaf");
+    if (a === "vmaf") {
+      const bad = S.result.versions.find((x) => x.level === "alert");
+      if (!bad) return act("run_vmaf");
+      return modal({ title: "Montages différents probables", hint: bad.text, ok: "Mesurer quand même",
+        body: `<p class="file-meta">Si les deux fichiers ne montrent pas les mêmes scènes au même instant, le score ne veut rien dire. Mesurez seulement si vous savez que c'est le même montage.</p>`,
+        onOk: () => act("run_vmaf") });
+    }
+    if (a === "up-more") return act("up_more", d.kind);
+    if (a === "open-log") return act("open_log_folder");
     if (a === "save-report") return act("save_report");
     if (a === "rank-pick") return inApp() ? act("rank_pick", d.v) : ask.path("Chemin d'un fichier ou dossier", (v) => act("rank_add", [v]));
     if (a === "rank-magnet") return ask.magnet((v) => act("rank_add_magnet", v));
@@ -335,7 +361,7 @@
   });
   document.addEventListener("input", (e) => { if (e.target.type === "range" && e.target.dataset.act) e.target.parentElement.querySelector(".num").textContent = e.target.value; });
   document.addEventListener("toggle", (e) => { const f = e.target.dataset && e.target.dataset.fold; if (f) ui.open[f] = e.target.open; }, true);
-  document.addEventListener("keydown", (e) => { if (e.key === "Escape") { const m = $(".modal-back"); if (m) m.remove(); } });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape") { const m = $(".modal-back"); if (m && m._close) m._close(); } });
 
   /* ---------- glisser-déposer ---------- */
   const pathOf = (f) => f.pywebviewFullPath || f.path || "";

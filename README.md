@@ -12,6 +12,27 @@ En ligne de commande :
     lancer.bat A.mkv B.mkv          # rapport texte
     lancer.bat A.mkv B.mkv --profil "Home cinéma"
 
+## Nouveautés de la V5 (fiabilité et vitesse)
+
+- **Scan deux fois plus rapide** pour les vidéos SDR : un seul appel `ffprobe` au lieu de deux (le second ne sert
+  que pour le HDR10+, donc seulement pour une vidéo HDR).
+- **Deux files de tâches** : analyser une case A ou B n'attend plus un scan de 3000 fichiers.
+- **Pistes d'amélioration paginées** : 50 lignes puis « Afficher plus ». La page n'est plus redessinée quand rien
+  n'a changé.
+- **Garde « mêmes versions »** : avant les images et le VMAF, VidCompare compare durée, cadence, format d'image
+  et chapitres. Si les durées diffèrent (écart d'au moins 1 minute et 1 %), un avertissement s'affiche et la mesure
+  VMAF demande une confirmation.
+- **VMAF corrigé** : seule la vidéo comparée est ramenée à la cadence de la référence. Une réserve s'affiche pour
+  le HDR, où le VMAF est peu fiable.
+- **Images côte à côte** : les extraits sont extraits en parallèle et gardés en mémoire.
+- **Journal d'erreurs** : `%APPDATA%\VidCompare\vidcompare.log` (Réglages > Diagnostic > Ouvrir le dossier du
+  journal). Une erreur du moteur s'affiche avec son vrai message au lieu de « Le moteur ne répond pas ».
+- **Dossiers temporaires** nettoyés à la fermeture et au lancement.
+- **Accessibilité** : texte gris faible à 4,9 de contraste (norme : 4,5), bordures des champs à 3,5 ou plus,
+  fenêtres qui retiennent le focus clavier, le rendent au bouton d'origine et ont un nom pour les lecteurs d'écran.
+- **Versions** : numéro affiché en bas du menu, dépôt Git local avec les étiquettes `v4` et `v5`.
+- **Tests** : 104 (dont 5 avec un vrai FFmpeg, ignorés s'il est absent).
+
 ## Interface (V4)
 
 Interface web moderne dans une vraie fenêtre (`pywebview`, composant WebView2 de Windows 11) :

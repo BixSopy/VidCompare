@@ -34,6 +34,7 @@ class MediaInfo:
     hdr10plus: bool = False
     audio: list[AudioTrack] = field(default_factory=list)
     subtitle_langs: list[str] = field(default_factory=list)
+    chapters: list[float] = field(default_factory=list)   # début de chaque chapitre, en secondes
     partial: bool = False                     # analyse détaillée impossible (ISO)
     from_name: bool = False                   # estimé d'après un nom de torrent, fichier non lu
     claims: object | None = None              # NameClaims déjà fusionnés (torrents)

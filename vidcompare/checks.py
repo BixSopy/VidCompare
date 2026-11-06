@@ -1,7 +1,7 @@
 """Détection d'incohérences entre le nom du fichier et son contenu réel."""
 from __future__ import annotations
 
-from .metrics import fmt, mbps, normalized_bpp, resolution_tier
+from .metrics import fmt, normalized_bpp, resolution_tier
 from .models import MediaInfo, SourceResolution, Warn
 from .parse_name import NameClaims
 

@@ -7,19 +7,25 @@ ce qui permet de la tester dans un navigateur.
 """
 from __future__ import annotations
 
+import atexit
 import base64
 import csv
+import functools
 import io
 import json
+import logging
 import os
+import shutil
 import sys
 import tempfile
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
+from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
+from . import __version__
 from . import groups as groups_store
 from . import vmaf
 from .cache import Cache
@@ -36,9 +42,33 @@ from .torrent import (DEFAULT_RUNTIME_MIN, VIDEO_EXT, TorrentError, TorrentInfo,
                       parse_torrent, torrent_to_media)
 from .upgrades import (DEFAULT_LEVEL, LEVELS, build_suggestions, suggestion_rows, target_parts,
                        wanted_text)
+from .versions import compare_versions as vmaf_guard
+from .versions import needs_confirmation
 
 MAX_FOLDER_FILES = 300
 MAX_SCAN_FILES = 3000
+UP_PAGE = 50          # lignes ajoutées à chaque « Afficher plus » dans les pistes d'amélioration
+
+log = logging.getLogger("vidcompare")
+
+
+def log_path() -> Path:
+    return Path(os.environ.get("APPDATA") or Path.home()) / "VidCompare" / "vidcompare.log"
+
+
+def setup_logging() -> None:
+    """Journal des erreurs : `%APPDATA%\\VidCompare\\vidcompare.log` (3 fichiers de 1 Mo au plus)."""
+    if log.handlers:
+        return
+    try:
+        path = log_path()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        handler = RotatingFileHandler(path, maxBytes=1_000_000, backupCount=3, encoding="utf-8")
+    except OSError:
+        return                      # pas de journal possible : l'application continue sans
+    handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(message)s"))
+    log.addHandler(handler)
+    log.setLevel(logging.INFO)
 KIND_NAME = {"file": "Fichier", "torrent": "Torrent (estimé)", "magnet": "Magnet (estimé)",
              "report": "Rapport MediaInfo"}
 VIDEO_TYPES = ("Vidéos (*.mkv;*.mp4;*.m4v;*.avi;*.mov;*.ts;*.m2ts;*.wmv;*.webm;*.iso)", "Tous les fichiers (*.*)")
@@ -102,7 +132,10 @@ class Api:
         self._items: dict[int, Item] = {}
         self._slot: dict[str, int | None] = {"A": None, "B": None}
         self._next = 1
-        self._pool = ThreadPoolExecutor(max_workers=4)
+        # Deux files séparées : l'analyse d'une case A ou B ne doit jamais attendre derrière un scan de 3000 fichiers.
+        self._pool = ThreadPoolExecutor(max_workers=3, thread_name_prefix="vc-interactif")
+        self._scan_pool = ThreadPoolExecutor(max_workers=3, thread_name_prefix="vc-scan")
+        self._up_limit = {"films": UP_PAGE, "series": UP_PAGE}   # lignes affichées dans chaque liste
         self._rev = 0                         # change à chaque réglage : invalide les pistes d'amélioration
         self._up_infos: list[MediaInfo] = []
         self._up_ver = 0
@@ -111,8 +144,24 @@ class Api:
         self._visual = {"busy": False, "text": "", "error": False, "key": None}
         self._last_recorded: tuple | None = None
         self._last_push = 0.0
+        setup_logging()
+        self._sweep_old_temp()
         self._frames_dir = tempfile.mkdtemp(prefix="vidcompare_")
+        atexit.register(shutil.rmtree, self._frames_dir, True)
+        self._frames_cache: dict[tuple, dict] = {}
         self._toast: str | None = None
+        log.info("VidCompare %s démarré", __version__)
+
+    @staticmethod
+    def _sweep_old_temp() -> None:
+        """Supprime les dossiers temporaires laissés par d'anciennes sessions (plus d'une heure)."""
+        limit = time.time() - 3600
+        for d in Path(tempfile.gettempdir()).glob("vidcompare_*"):
+            try:
+                if d.is_dir() and d.stat().st_mtime < limit:
+                    shutil.rmtree(d, ignore_errors=True)
+            except OSError:
+                pass
 
     # ------------------------------------------------------------------ réglages
     def _weights(self) -> dict[str, float]:
@@ -164,7 +213,7 @@ class Api:
         ia, ib = self._slot["A"], self._slot["B"]
         state = {
             "ffmpeg": {"ok": bool(self._ffprobe()), "hasFfmpeg": bool(vmaf.find_ffmpeg(self._store.get("ffprobe")))},
-            "theme": self._store.get("theme", "cinema"),
+            "theme": self._store.get("theme", "cinema"), "version": __version__,
             "toast": self._toast,
             "slots": {t: self._slot_state(t, evals) for t in "AB"},
             "result": None,
@@ -215,7 +264,10 @@ class Api:
         key = (ia, ib)
         if self._visual["key"] != key:
             self._visual.update(key=key, text="", error=False)
+        issues = vmaf_guard(cmp.a.info, cmp.b.info)
         return {
+            "versions": [{"level": w.level, "text": w.text} for w in issues],
+            "versionsBlock": needs_confirmation(issues),
             "total": {"A": round(cmp.total_a, 1), "B": round(cmp.total_b, 1)},
             "winner": cmp.winner, "gap": round(abs(cmp.total_a - cmp.total_b), 1), "partial": cmp.partial,
             "reasons": reasons, "sizeNote": size_line(cmp) or "",
@@ -271,7 +323,10 @@ class Api:
                               "gain": round(s.gain, 1),
                               "fix": [f"{i.label} : {i.now} → {i.wanted}" for i in s.improvements],
                               "size": f"{fmt(s.size_bytes / 1e9)} Go", "folder": s.folder}
-            lib["films"], lib["series"] = [conv(s) for s in films], [conv(s) for s in series]
+            # Seules les premières lignes partent vers l'écran : 3000 fichiers pesaient 719 Ko à chaque envoi.
+            lib["films"] = [conv(s) for s in films[: self._up_limit["films"]]]
+            lib["series"] = [conv(s) for s in series[: self._up_limit["series"]]]
+            lib["filmsTotal"], lib["seriesTotal"] = len(films), len(series)
             lib["summary"] = (f"{total} fichiers analysés · {len(films)} film(s) et {len(series)} saison(s) à "
                               f"améliorer · {ok} fichier(s) déjà au niveau visé.")
             lib["hasResults"] = True
@@ -346,6 +401,7 @@ class Api:
             err = None
         except Exception as exc:  # noqa: BLE001 - toute erreur doit s'afficher
             info, err = None, str(exc)
+            log.warning("Analyse impossible de %s : %s", path, exc)
         with self._lock:
             item = self._items.get(item_id)
             if item:
@@ -487,6 +543,14 @@ class Api:
             if name in LEVELS:
                 self._store.set("up_level", name)
                 self._rev += 1
+                self._up_limit = {"films": UP_PAGE, "series": UP_PAGE}
+            return self._done()
+
+    def up_more(self, kind: str) -> dict:
+        """Affiche une page de plus dans la liste des films ou des séries."""
+        with self._lock:
+            if kind in self._up_limit:
+                self._up_limit[kind] += UP_PAGE
             return self._done()
 
     def up_scan(self) -> dict:
@@ -500,6 +564,7 @@ class Api:
             if not files:
                 return self._done("Aucune vidéo trouvée dans ces dossiers.")
             token = object()
+            self._up_limit = {"films": UP_PAGE, "series": UP_PAGE}
             self._up_infos = []
             self._scan = {"token": token, "done": 0, "total": len(files), "cached": 0, "failed": 0, "capped": capped}
             todo = []
@@ -512,7 +577,7 @@ class Api:
                 else:
                     todo.append(f)
             for f in todo:
-                self._pool.submit(self._scan_one, token, f)
+                self._scan_pool.submit(self._scan_one, token, f)
             if not todo:
                 self._scan_finish(token)
             return self._done()
@@ -523,8 +588,9 @@ class Api:
                 return
         try:
             info, ok = load_media(path, self._store.get("ffprobe")), True
-        except Exception:  # noqa: BLE001
+        except Exception as exc:  # noqa: BLE001
             info, ok = None, False
+            log.warning("Scan : %s illisible : %s", path, exc)
         with self._lock:
             if not self._scan or self._scan["token"] is not token:
                 return
@@ -720,14 +786,23 @@ class Api:
         if not ready:
             return {"ok": False, "error": "Comparaison visuelle indisponible pour ces éléments."}
         a, b, ffmpeg = ready
+        times = vmaf.sample_times(a.duration, b.duration)
+
+        def one(i: int, t: float) -> dict:
+            key = (a.path, a.size_bytes, b.path, b.size_bytes, round(t, 2))
+            if key not in self._frames_cache:       # une image déjà extraite n'est pas refaite
+                png = vmaf.side_by_side(ffmpeg, a, b, t, Path(self._frames_dir) / f"image{len(self._frames_cache)}_{i}.png")
+                self._frames_cache[key] = {"t": round(t), "src": "data:image/png;base64," +
+                                           base64.b64encode(png.read_bytes()).decode()}
+            return self._frames_cache[key]
         try:
-            frames = []
-            for i, t in enumerate(vmaf.sample_times(a.duration, b.duration)):
-                png = vmaf.side_by_side(ffmpeg, a, b, t, Path(self._frames_dir) / f"image{i}.png")
-                frames.append({"t": round(t), "src": "data:image/png;base64," + base64.b64encode(png.read_bytes()).decode()})
-            return {"ok": True, "frames": frames, "nameA": a.filename, "nameB": b.filename}
+            with ThreadPoolExecutor(max_workers=len(times)) as pool:       # les extraits en parallèle
+                frames = list(pool.map(lambda it: one(*it), enumerate(times)))
         except Exception as exc:  # noqa: BLE001
+            log.warning("Images côte à côte : %s", exc)
             return {"ok": False, "error": str(exc)}
+        warnings = [{"level": w.level, "text": w.text} for w in vmaf_guard(a, b)]
+        return {"ok": True, "frames": frames, "nameA": a.filename, "nameB": b.filename, "warnings": warnings}
 
     def run_vmaf(self) -> dict:
         with self._lock:
@@ -752,14 +827,17 @@ class Api:
         try:
             times = vmaf.sample_times(ref.duration, dist.duration)
             score = vmaf.measure_vmaf(ffmpeg, ref, dist, times, progress=progress)
-            hdr = " Les images HDR sont converties en SDR pour la mesure." if any(
+            hdr = (" Attention : une vidéo est en HDR. Elle est convertie en SDR pour la mesure, et le VMAF est "
+                   "peu fiable en HDR : prenez ce score comme une indication.") if any(
                 i.hdr and i.hdr != "SDR" for i in (ref, dist)) else ""
             text = (f"Le fichier {dist_tag} ressemble au fichier {ref_tag} à {fmt(score)} sur 100 "
                     f"({vmaf.describe(score)}). Mesure sur {len(times)} extraits de {vmaf.SAMPLE_SECONDS} s, "
-                    f"le fichier {ref_tag} servant de référence : un écart entre les deux, pas une note absolue.{hdr}")
+                    f"ramenée à 1080p au plus, le fichier {ref_tag} servant de référence : un écart entre les "
+                    f"deux, pas une note absolue.{hdr}")
             err = False
         except Exception as exc:  # noqa: BLE001
             text, err = "Erreur : " + str(exc), True
+            log.warning("VMAF : %s", exc)
         with self._lock:
             self._visual.update(busy=False, text=text, error=err)
         self._push()
@@ -801,12 +879,38 @@ class Api:
             return self._done("Rapport enregistré.")
         return self.get_state()
 
+    def open_log_folder(self) -> dict:
+        """Ouvre le dossier du journal d'erreurs dans l'Explorateur."""
+        folder = log_path().parent
+        with self._lock:
+            if sys.platform == "win32" and folder.is_dir():
+                os.startfile(folder)    # noqa: S606 - dossier de l'application, pas une entrée utilisateur
+                return self._done()
+            return self._done(f"Journal : {log_path()}")
+
     def pick_ffprobe(self) -> dict:
         paths = self._dialog("open", file_types=("ffprobe (ffprobe*.exe)", "Tous les fichiers (*.*)"))
         with self._lock:
             if paths:
                 self._store.set("ffprobe", paths[0])
             return self._done()
+
+
+def _guarded(name: str, fn):
+    """Une erreur inattendue du moteur est écrite au journal et renvoyée à l'écran avec son vrai message."""
+    @functools.wraps(fn)
+    def wrapper(self, *args, **kwargs):
+        try:
+            return fn(self, *args, **kwargs)
+        except Exception as exc:  # noqa: BLE001 - dernier filet : rien ne doit planter l'interface
+            log.exception("Erreur dans %s", name)
+            return {"error": f"Erreur interne ({type(exc).__name__} : {exc}). Détails dans le journal."}
+    return wrapper
+
+
+for _name, _fn in list(vars(Api).items()):
+    if not _name.startswith("_") and callable(_fn):
+        setattr(Api, _name, _guarded(_name, _fn))
 
 
 # ====================================================================== lancement

@@ -112,10 +112,14 @@ def measure_vmaf(ffmpeg: str, ref: MediaInfo, dist: MediaInfo, times: list[float
     with tempfile.TemporaryDirectory() as tmp:
         for i, t in enumerate(times):
             log = f"vmaf{i}.json"
-            def chain(info, label):      # réduire d'abord, convertir le HDR ensuite
-                return (f"[{label}:v]scale={w}:{h}:flags=bicubic,{_tonemap(info)}fps=24,"
+
+            def chain(info, label, fps=""):      # réduire d'abord, convertir le HDR ensuite
+                return (f"[{label}:v]scale={w}:{h}:flags=bicubic,{_tonemap(info)}{fps}"
                         f"setpts=PTS-STARTPTS[v{label}]")
-            graph = (f"{chain(dist, 0)};{chain(ref, 1)};"
+            # Bonne pratique VMAF : on adapte la cadence de la vidéo comparée à celle de la référence,
+            # jamais l'inverse ni les deux.
+            dist_fps = f"fps={ref.fps:.3f}," if ref.fps and dist.fps and abs(ref.fps - dist.fps) > 0.01 else ""
+            graph = (f"{chain(dist, 0, dist_fps)};{chain(ref, 1)};"
                      f"[v0][v1]libvmaf=n_threads={os.cpu_count() or 4}:log_fmt=json:log_path={log}")
             _run([ffmpeg, "-v", "error", "-y", "-ss", f"{t:.2f}", "-t", str(SAMPLE_SECONDS), *_VIDEO_ONLY,
                   "-i", dist.path, "-ss", f"{t:.2f}", "-t", str(SAMPLE_SECONDS), *_VIDEO_ONLY, "-i", ref.path,
