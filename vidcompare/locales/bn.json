@@ -375,5 +375,6 @@
   "ui.update_check": "এখনই যাচাই করুন",
   "web.update_failed": "আপডেট যাচাই করতে GitHub-এ সংযোগ করা যায়নি।",
   "web.update_available": "সংস্করণ {version} পাওয়া যাচ্ছে।",
-  "web.update_none": "আপনার কাছে সর্বশেষ সংস্করণ ({version}) আছে।"
+  "web.update_none": "আপনার কাছে সর্বশেষ সংস্করণ ({version}) আছে।",
+  "ui.scan_listing": "আপনার ফোল্ডারে ভিডিও খোঁজা হচ্ছে…"
 }

@@ -148,6 +148,7 @@ class Api:
         self._up_ver = 0
         self._up_cache: tuple | None = None
         self._scan: dict | None = None
+        self._walking = 0                     # parcours de dossiers en cours (liste de classement)
         self._visual = {"busy": False, "text": "", "error": False, "key": None}
         self._last_recorded: tuple | None = None
         self._last_push = 0.0
@@ -239,7 +240,7 @@ class Api:
         state = {
             "ffmpeg": {"ok": bool(self._ffprobe()), "hasFfmpeg": bool(vmaf.find_ffmpeg(self._store.get("ffprobe")))},
             "theme": self._store.get("theme", "cinema"), "version": __version__,
-            "update": self._update, "updateCheck": bool(self._store.get("update_check", True)),
+            "walking": self._walking > 0, "update": self._update, "updateCheck": bool(self._store.get("update_check", True)),
             "lang": i18n.get_language(), "rtl": i18n.is_rtl(),
             "toast": self._toast,
             "slots": {tag: self._slot_state(tag, evals) for tag in "AB"},
@@ -335,7 +336,7 @@ class Api:
                "levels": [[k, level_label(k)] for k in LEVELS],
                "wanted": wanted_text(parts), "scan": None, "summary": "", "films": [], "series": []}
         if self._scan:
-            lib["scan"] = {k: self._scan[k] for k in ("done", "total", "cached", "failed")}
+            lib["scan"] = {k: self._scan[k] for k in ("phase", "done", "total", "cached", "failed")}
         if self._up_infos and not self._scan:
             key = (self._up_ver, self._rev, level, i18n.get_language())
             if not self._up_cache or self._up_cache[0] != key:
@@ -497,12 +498,34 @@ class Api:
         return files
 
     def rank_add(self, sources: list[str]) -> dict:
+        if not any(os.path.isdir(p) for p in sources):
+            with self._lock:
+                return self._add_ranked(self._expand(sources))
         with self._lock:
+            self._walking += 1
+        self._scan_pool.submit(self._rank_walk, list(sources))
+        return self.get_state()
+
+    def _rank_walk(self, sources: list[str]) -> None:
+        try:
             files = self._expand(sources)
-            capped = len(files) > MAX_FOLDER_FILES
-            for f in files[:MAX_FOLDER_FILES]:
-                self._make_item(f, ranked=True)
-            return self._done(t("web.folder_cap", n=MAX_FOLDER_FILES) if capped else None)
+        except OSError as exc:
+            log.warning("Parcours des dossiers impossible : %s", exc)
+            files = []
+        with self._lock:
+            self._walking -= 1
+            self._add_ranked(files, notify=True)
+        self._push()
+
+    def _add_ranked(self, files: list[str], notify: bool = False) -> dict:
+        capped = len(files) > MAX_FOLDER_FILES
+        for f in files[:MAX_FOLDER_FILES]:
+            self._make_item(f, ranked=True)
+        msg = t("web.folder_cap", n=MAX_FOLDER_FILES) if capped else (t("web.no_video") if not files else None)
+        if notify:
+            self._toast = msg
+            return {}
+        return self._done(msg)
 
     def rank_pick(self, what: str) -> dict:
         kinds = {"videos": ("open", video_types()), "torrents": ("open", (t("web.torrents") + " (*.torrent)",)),
@@ -582,33 +605,50 @@ class Api:
             return self._done()
 
     def up_scan(self) -> dict:
+        """Lance l'analyse tout de suite : le parcours des dossiers se fait en arrière-plan, l'écran affiche « recherche »."""
         with self._lock:
-            folders = self._store.get("up_folders", [])
+            folders = list(self._store.get("up_folders", []))
             if not folders:
                 return self._done(t("web.add_folder_first"))
-            files = list(dict.fromkeys(self._expand(folders)))
-            capped = len(files) > MAX_SCAN_FILES
-            files = files[:MAX_SCAN_FILES]
-            if not files:
-                return self._done(t("web.no_video"))
+            if self._scan:
+                return self._done()
             token = object()
             self._up_limit = {"films": UP_PAGE, "series": UP_PAGE}
             self._up_infos = []
-            self._scan = {"token": token, "done": 0, "total": len(files), "cached": 0, "failed": 0, "capped": capped}
-            todo = []
-            for f in files:
-                info = self._cache.get(f)
-                if info is not None:
-                    self._up_infos.append(info)
-                    self._scan["done"] += 1
-                    self._scan["cached"] += 1
-                else:
-                    todo.append(f)
-            for f in todo:
-                self._scan_pool.submit(self._scan_one, token, f)
-            if not todo:
-                self._scan_finish(token)
-            return self._done()
+            self._scan = {"token": token, "phase": "listing", "done": 0, "total": 0, "cached": 0, "failed": 0, "capped": False}
+        self._scan_pool.submit(self._scan_list, token, folders)
+        return self.get_state()
+
+    def _scan_list(self, token, folders: list[str]) -> None:
+        try:
+            files = list(dict.fromkeys(self._expand(folders)))
+        except OSError as exc:
+            log.warning("Parcours des dossiers impossible : %s", exc)
+            files = []
+        with self._lock:
+            if not self._scan or self._scan["token"] is not token:
+                return
+            capped = len(files) > MAX_SCAN_FILES
+            files = files[:MAX_SCAN_FILES]
+            if not files:
+                self._scan = None
+                self._toast = t("web.no_video")
+            else:
+                self._scan.update(phase="analyze", total=len(files), capped=capped)
+                todo = []
+                for f in files:
+                    info = self._cache.get(f)
+                    if info is not None:
+                        self._up_infos.append(info)
+                        self._scan["done"] += 1
+                        self._scan["cached"] += 1
+                    else:
+                        todo.append(f)
+                for f in todo:
+                    self._scan_pool.submit(self._scan_one, token, f)
+                if not todo:
+                    self._scan_finish(token)
+        self._push()
 
     def _scan_one(self, token, path: str) -> None:
         with self._lock:

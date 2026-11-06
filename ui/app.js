@@ -35,7 +35,7 @@
   };
   const NAV = ["compare", "library", "history", "settings"];
 
-  const ui = { view: "compare", lib: "rank", open: {}, animate: true, lastKey: "" };
+  const ui = { view: "compare", lib: "rank", open: {}, animate: true, lastKey: "", btn: null };
   { const h = location.hash.slice(1); if (["compare", "library", "history", "settings"].includes(h)) ui.view = h; }   // lien direct vers une vue
   let S = null;            // dernier état reçu du moteur
 
@@ -52,10 +52,28 @@
       return out;
     } catch (e) { toast(T("ui.engine_down")); return null; }
   }
+  // Retour visuel sur chaque action : bouton avec roue, barre de progression en haut de la fenêtre.
+  let pending = 0;
+  function syncBar() {
+    const on = pending > 0 || (!!S && working());
+    const bar = $("#topbar"), main = $("#main");
+    if (bar) bar.classList.toggle("on", on);
+    if (main) main.setAttribute("aria-busy", on ? "true" : "false");
+  }
   async function act(name, ...args) {
-    const s = await call(name, ...args);
-    if (s && s.slots) { if (s.lang !== STR_LANG) await loadStrings(); setState(s); }
-    return s;
+    const b = ui.btn; ui.btn = null;
+    pending++;
+    if (b) { b.classList.add("busy"); b.setAttribute("aria-disabled", "true"); }
+    syncBar();
+    try {
+      const s = await call(name, ...args);
+      if (s && s.slots) { if (s.lang !== STR_LANG) await loadStrings(); setState(s); }
+      return s;
+    } finally {
+      pending--;
+      if (b && b.isConnected) { b.classList.remove("busy"); b.removeAttribute("aria-disabled"); }
+      syncBar();
+    }
   }
 
   let lastSig = "";
@@ -72,6 +90,7 @@
     render();
     if (main && !ui.animate) main.scrollTop = top;
     ui.animate = false;
+    syncBar();
   }
   window.VC = { setState };
 
@@ -212,7 +231,8 @@
             <div class="chips">${x.chips.map((c) => `<span class="chip">${esc(c)}</span>`).join("")}${x.alerts ? `<span class="chip alert">${esc(T("ui.alerts_n", { n: x.alerts }))}</span>` : ""}</div>
             <div class="row-actions" style="margin-top:14px">${btn("rank-send", T("ui.send_a"), `data-id="${x.id}" data-tag="A"`, "small")}${btn("rank-send", T("ui.send_b"), `data-id="${x.id}" data-tag="B"`, "small")}${btn("rank-remove", T("ui.remove"), `data-id="${x.id}"`, "small danger")}</div></div>
           ${ring(x.score, "mini-ring", 44, 9)}</div>`;
-    return `<div class="toolbar" style="margin-top:0">${btn("rank-pick", T("ui.add_videos"), `data-v="videos"`, "primary small").replace(">" + esc(T("ui.add_videos")), ">" + ICON.plus + esc(T("ui.add_videos")))}
+    const walking = S.walking ? `<div class="banner" style="display:block;margin:0 0 16px"><span>${spinner(T("ui.scan_listing"))}</span><div class="track indet" style="margin-top:12px"><div class="fill" style="background:var(--accent)"></div></div></div>` : "";
+    return walking + `<div class="toolbar" style="margin-top:0">${btn("rank-pick", T("ui.add_videos"), `data-v="videos"`, "primary small").replace(">" + esc(T("ui.add_videos")), ">" + ICON.plus + esc(T("ui.add_videos")))}
       ${btn("rank-pick", T("ui.add_folder"), `data-v="folder"`, "small")}${btn("rank-pick", T("ui.add_torrents"), `data-v="torrents"`, "small")}
       ${btn("rank-magnet", T("ui.add_magnet"), "", "small")}<span style="flex:1"></span>
       ${btn("rank-export", T("ui.export_csv"), "", "small")}${btn("rank-clear", T("ui.clear"), "", "small danger")}</div>
@@ -227,7 +247,9 @@
         <span class="file-meta">${esc(x.size)}</span></div></div>`;
     const more = (kind, left) => (left > 0 ? `<div style="margin-top:16px;text-align:center">${btn("up-more", T("ui.show_more", { n: left }), `data-kind="${kind}"`)}</div>` : "");
     const none = `<div class="card empty"><p>${esc(T("ui.nothing_to_improve"))}</p></div>`;
-    const scan = L.scan ? `<div class="banner" style="display:block"><div class="row-between"><span>${spinner(T("ui.scan_progress", { done: L.scan.done, total: L.scan.total }) + (L.scan.cached ? " " + T("ui.scan_cached", { n: L.scan.cached }) : ""))}</span>${btn("up-cancel", T("ui.cancel"), "", "small")}</div>
+    const listing = L.scan && L.scan.phase === "listing";
+    const scan = listing ? `<div class="banner" style="display:block"><div class="row-between"><span>${spinner(T("ui.scan_listing"))}</span>${btn("up-cancel", T("ui.cancel"), "", "small")}</div>
+      <div class="track indet" style="margin-top:12px"><div class="fill" style="background:var(--accent)"></div></div></div>` : L.scan ? `<div class="banner" style="display:block"><div class="row-between"><span>${spinner(T("ui.scan_progress", { done: L.scan.done, total: L.scan.total }) + (L.scan.cached ? " " + T("ui.scan_cached", { n: L.scan.cached }) : ""))}</span>${btn("up-cancel", T("ui.cancel"), "", "small")}</div>
       <div class="track" style="margin-top:12px"><div class="fill" style="width:${L.scan.total ? (100 * L.scan.done) / L.scan.total : 0}%;background:var(--accent)"></div></div></div>` : "";
     return `<div class="folders">${L.folders.map((f) => `<span class="folder">${esc(f)}<button aria-label="${esc(T("ui.remove"))} ${esc(f)}" data-act="up-remove" data-path="${esc(f)}">×</button></span>`).join("")}
         <button class="btn small" data-act="up-add">${ICON.plus}${esc(T("ui.add_folder_btn"))}</button></div>
@@ -332,6 +354,7 @@
     const el = e.target.closest("[data-act]");
     if (!el || el.tagName === "SELECT" || el.tagName === "INPUT") return;
     const a = el.dataset.act, d = el.dataset, tag = d.tag;
+    if (a !== "nav" && a !== "lib" && !el.classList.contains("busy")) ui.btn = el; else if (el.classList.contains("busy")) return;
     if (a === "nav") { ui.view = d.v; ui.animate = true; render(); ui.animate = false; $("#main").scrollTop = 0; return; }
     if (a === "lib") { ui.lib = d.v; ui.animate = true; render(); ui.animate = false; return; }
     if (a === "pick-video") return inApp() ? act("pick_video", tag) : ask.path(T("ui.path_video"), (v) => act("set_source", tag, v));
@@ -429,6 +452,6 @@
   // Tant qu'une analyse tourne en arrière-plan, on redemande l'état : filet si une notification est perdue,
   // et seul moyen de se tenir à jour en mode navigateur (sans fenêtre pywebview pour pousser l'état).
   const working = () => !!S && (["A", "B"].some((tag) => S.slots[tag] && S.slots[tag].status === "loading") ||
-    S.ranking.rows.some((r) => r.status === "loading") || !!S.library.scan || (S.result && S.result.visual.busy));
+    S.ranking.rows.some((r) => r.status === "loading") || !!S.library.scan || !!S.walking || (S.result && S.result.visual.busy));
   setInterval(() => { if (working() && !document.querySelector(".modal-back")) call("get_state").then((s) => s && s.slots && setState(s)); }, 800);
 })();

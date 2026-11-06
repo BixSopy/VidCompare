@@ -375,5 +375,6 @@
   "ui.update_check": "立即检查",
   "web.update_failed": "无法连接 GitHub 检查更新。",
   "web.update_available": "版本 {version} 已发布。",
-  "web.update_none": "您已使用最新版本（{version}）。"
+  "web.update_none": "您已使用最新版本（{version}）。",
+  "ui.scan_listing": "正在您的文件夹中查找视频…"
 }

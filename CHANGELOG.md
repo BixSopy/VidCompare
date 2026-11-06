@@ -1,5 +1,9 @@
 # Changelog
 
+## 6.1.2
+- Visual feedback for every action: spinner on the clicked button, progress bar at the top of the window, and an immediate "looking for videos" banner when scanning or adding large folders (the folder walk no longer freezes the screen).
+- App icon.
+
 ## 6.1.1
 - Installer: no nested winget during a silent install (winget package). Screenshots and project web page. Direct links to views (`#settings`).
 

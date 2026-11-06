@@ -375,5 +375,6 @@
   "ui.update_check": "अभी जाँचें",
   "web.update_failed": "अपडेट जाँचने के लिए GitHub से संपर्क नहीं हो सका।",
   "web.update_available": "संस्करण {version} उपलब्ध है।",
-  "web.update_none": "आपके पास नवीनतम संस्करण ({version}) है।"
+  "web.update_none": "आपके पास नवीनतम संस्करण ({version}) है।",
+  "ui.scan_listing": "आपके फ़ोल्डरों में वीडियो खोजे जा रहे हैं…"
 }

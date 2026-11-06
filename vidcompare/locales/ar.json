@@ -375,5 +375,6 @@
   "ui.update_check": "تحقق الآن",
   "web.update_failed": "تعذر الاتصال بـ GitHub للتحقق من التحديثات.",
   "web.update_available": "الإصدار {version} متاح.",
-  "web.update_none": "لديك أحدث إصدار ({version})."
+  "web.update_none": "لديك أحدث إصدار ({version}).",
+  "ui.scan_listing": "جارٍ البحث عن مقاطع الفيديو في مجلداتك…"
 }

@@ -296,3 +296,14 @@ input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 20px;
 :lang(bn) { font-family: "Nirmala UI", "Segoe UI", sans-serif; }
 :lang(ar) { font-family: "Segoe UI", "Tahoma", sans-serif; }
 .warn-banner.upd { background: rgba(45,212,167,.1); border-bottom-color: rgba(45,212,167,.35); color: var(--accent); }
+
+/* Retour visuel : barre de progression en haut, bouton occupé, barre indéterminée */
+.topbar { position: fixed; inset-inline: 0; top: 0; height: 3px; z-index: 80; overflow: hidden; opacity: 0; transition: opacity .15s; pointer-events: none; }
+.topbar.on { opacity: 1; }
+.topbar i { position: absolute; top: 0; bottom: 0; width: 35%; background: var(--accent); border-radius: 3px; animation: slide 1.1s ease-in-out infinite; }
+@keyframes slide { 0% { inset-inline-start: -35%; } 100% { inset-inline-start: 100%; } }
+.btn.busy { pointer-events: none; opacity: .75; }
+.btn.busy::before { content: ""; display: inline-block; width: 13px; height: 13px; margin-inline-end: 8px; vertical-align: -2px; border-radius: 50%; border: 2px solid var(--line-strong); border-top-color: var(--accent); animation: spin .8s linear infinite; }
+.track.indet { position: relative; overflow: hidden; }
+.track.indet .fill { position: absolute; top: 0; bottom: 0; width: 35%; animation: slide 1.2s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) { .topbar i, .track.indet .fill { animation: none; width: 100%; opacity: .5; } .btn.busy::before { animation-duration: 2s; } }

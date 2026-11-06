@@ -375,5 +375,6 @@
   "ui.update_check": "Periksa sekarang",
   "web.update_failed": "Tidak dapat menghubungi GitHub untuk memeriksa pembaruan.",
   "web.update_available": "Versi {version} tersedia.",
-  "web.update_none": "Anda sudah memakai versi terbaru ({version})."
+  "web.update_none": "Anda sudah memakai versi terbaru ({version}).",
+  "ui.scan_listing": "Mencari video di folder Anda…"
 }

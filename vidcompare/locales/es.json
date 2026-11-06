@@ -375,5 +375,6 @@
   "ui.update_check": "Comprobar ahora",
   "web.update_failed": "No se pudo conectar con GitHub para buscar actualizaciones.",
   "web.update_available": "La versión {version} está disponible.",
-  "web.update_none": "Tiene la última versión ({version})."
+  "web.update_none": "Tiene la última versión ({version}).",
+  "ui.scan_listing": "Buscando vídeos en sus carpetas…"
 }

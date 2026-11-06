@@ -375,5 +375,6 @@
   "ui.update_check": "Проверить сейчас",
   "web.update_failed": "Не удалось подключиться к GitHub для проверки обновлений.",
   "web.update_available": "Доступна версия {version}.",
-  "web.update_none": "У вас последняя версия ({version})."
+  "web.update_none": "У вас последняя версия ({version}).",
+  "ui.scan_listing": "Поиск видео в ваших папках…"
 }
