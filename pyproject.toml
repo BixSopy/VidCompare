@@ -1,0 +1,21 @@
+[project]
+name = "vidcompare"
+dynamic = ["version"]
+description = "Compare the quality of two video files and get a score out of 100."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+dependencies = ["pywebview>=6.0"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "ruff", "pyinstaller"]
+
+[tool.setuptools.dynamic]
+version = { attr = "vidcompare.__version__" }
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

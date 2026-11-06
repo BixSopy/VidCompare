@@ -71,7 +71,7 @@ def test_real_probe_uses_one_call_for_sdr_and_two_for_hdr(clips, monkeypatch):
 
 def test_two_real_files_compare_and_guard_is_quiet(api, clips):
     api.set_source("A", clips["sdr"])
-    s = api.set_source("B", clips["short"])
+    api.set_source("B", clips["short"])
     assert wait(lambda: api.get_state()["result"] is not None)
     r = api.get_state()["result"]
     assert r["winner"] in {"A", "B"} and r["visual"]["available"] and not r["versionsBlock"]
