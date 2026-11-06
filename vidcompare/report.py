@@ -1,6 +1,7 @@
-"""Verdict et explications en français, partagés par la console et l'interface."""
+"""Verdict et explications dans la langue active, partagés par la console et l'interface."""
 from __future__ import annotations
 
+from .i18n import t
 from .metrics import fmt
 from .models import Comparison, Evaluation
 
@@ -8,11 +9,10 @@ from .models import Comparison, Evaluation
 def verdict(cmp: Comparison) -> str:
     diff = cmp.total_a - cmp.total_b
     if not cmp.contributions:
-        return "Aucun critère comparable entre ces deux fichiers."
-    if cmp.winner == "égalité":
-        return f"Qualité équivalente (écart de {fmt(abs(diff))} point)."
-    name = "Le fichier A" if cmp.winner == "A" else "Le fichier B"
-    return f"{name} est de meilleure qualité, avec {fmt(abs(diff))} points d'avance."
+        return t("rep.no_criteria")
+    if cmp.winner == "égalité":          # « égalité » est l'identifiant interne d'une égalité, jamais affiché
+        return t("rep.tie", gap=fmt(abs(diff)))
+    return t("rep.winner_a" if cmp.winner == "A" else "rep.winner_b", gap=fmt(abs(diff)))
 
 
 def explanations(cmp: Comparison) -> list[str]:
@@ -24,10 +24,9 @@ def explanations(cmp: Comparison) -> list[str]:
         who = "A" if c.points > 0 else "B"
         better, worse = (c.a, c.b) if c.points > 0 else (c.b, c.a)
         other = "B" if who == "A" else "A"
-        label = c.label if c.label.isupper() else c.label.lower()
-        lines.append(f"{who} gagne {fmt(abs(c.points))} pt sur {label} : "
-                     f"{better.value} contre {worse.value} pour {other}.")
-    lines = lines or ["Aucun critère ne fait vraiment la différence."]
+        lines.append(t("rep.gain", who=who, pts=fmt(abs(c.points)), label=c.label, better=better.value,
+                       worse=worse.value, other=other))
+    lines = lines or [t("rep.nothing")]
     size = size_line(cmp)
     return lines + ([size] if size else [])
 
@@ -41,54 +40,52 @@ def size_line(cmp: Comparison) -> str | None:
     gbig, gsmall = max(ga, gb), min(ga, gb)
     extra = gbig - gsmall
     gain = tb - ts
+    common = dict(big=big, small=small, extra=fmt(extra), gbig=fmt(gbig), gsmall=fmt(gsmall))
     if gain <= 0.5:
-        return (f"{big} pèse {fmt(extra)} Go de plus que {small} ({fmt(gbig)} Go contre {fmt(gsmall)} Go) "
-                f"sans noter mieux : {small} est plus économe.")
-    return (f"{big} pèse {fmt(extra)} Go de plus que {small} ({fmt(gbig)} Go contre {fmt(gsmall)} Go) "
-            f"pour {fmt(gain)} points de plus, soit {fmt(gain / extra, 2)} pt par Go supplémentaire.")
+        return t("rep.size_no_gain", **common)
+    return t("rep.size_gain", gain=fmt(gain), per_gb=fmt(gain / extra, 2), **common)
 
 
 def ranking_rows(ranked) -> list[dict]:
-    """Lignes du classement (pour la console et l'export CSV)."""
+    """Lignes du classement (pour la console et l'export CSV), colonnes dans la langue active."""
     rows = []
     for i, (ev, total) in enumerate(ranked, 1):
         info = ev.info
         rows.append({
-            "rang": i, "nom": info.filename, "note": None if total is None else round(total, 1),
-            "taille_go": round(info.size_bytes / 1e9, 2) if info.size_bytes else None,
-            "source": ev.cats["source"].value, "resolution": ev.cats["resolution"].value,
-            "hdr": ev.cats["hdr"].value, "audio": ev.cats["audio"].value,
-            "estime": "oui" if info.from_name else "non",
-            "alertes": sum(1 for w in ev.warnings if w.level == "alert"),
+            t("csv.rank"): i, t("csv.name"): info.filename,
+            t("csv.score"): None if total is None else round(total, 1),
+            t("csv.size_gb"): round(info.size_bytes / 1e9, 2) if info.size_bytes else None,
+            t("csv.source"): ev.cats["source"].value, t("csv.resolution"): ev.cats["resolution"].value,
+            t("csv.hdr"): ev.cats["hdr"].value, t("csv.audio"): ev.cats["audio"].value,
+            t("csv.estimated"): t("csv.yes") if info.from_name else t("csv.no"),
+            t("csv.alerts"): sum(1 for w in ev.warnings if w.level == "alert"),
         })
     return rows
 
 
 def warnings_of(ev: Evaluation) -> list[str]:
     order = {"alert": 0, "warn": 1, "info": 2}
-    prefix = {"alert": "ALERTE", "warn": "Attention", "info": "Info"}
-    return [f"{prefix[w.level]} : {w.text}" for w in sorted(ev.warnings, key=lambda w: order[w.level])]
+    return [f"{t('sev.' + w.level)} : {w.text}" for w in sorted(ev.warnings, key=lambda w: order[w.level])]
 
 
 def tracks_text(ev: Evaluation) -> list[str]:
     out = []
-    for t in ev.info.audio:
-        br = f" · {fmt(t.bitrate / 1000, 0)} kb/s" if t.bitrate else ""
-        lang = t.language or "?"
-        out.append(f"Audio {lang.upper()} : {t.label}, {t.channels} canaux{br}")
+    for tr in ev.info.audio:
+        br = f" · {fmt(tr.bitrate / 1000, 0)} kb/s" if tr.bitrate else ""
+        out.append(t("rep.track", lang=(tr.language or "?").upper(), label=tr.label, ch=tr.channels, br=br))
     if ev.info.subtitle_langs:
-        out.append("Sous-titres : " + ", ".join(sorted({l.upper() for l in ev.info.subtitle_langs})))
+        out.append(t("rep.subs", langs=", ".join(sorted({s.upper() for s in ev.info.subtitle_langs}))))
     return out
 
 
 def text_report(cmp: Comparison) -> str:
     out = [f"A : {cmp.a.info.filename}", f"B : {cmp.b.info.filename}", "",
-           f"Note A : {fmt(cmp.total_a)} / 100", f"Note B : {fmt(cmp.total_b)} / 100",
+           t("rep.score_a", v=fmt(cmp.total_a)), t("rep.score_b", v=fmt(cmp.total_b)),
            verdict(cmp), ""]
     if cmp.partial:
-        out += ["(Comparaison partielle : certains critères n'ont pas pu être évalués.)", ""]
+        out += [t("rep.partial"), ""]
     w = max((len(c.label) for c in cmp.contributions), default=8)
-    out.append(f"{'Critère'.ljust(w)} | {'A':<34} | {'B':<34} | Effet")
+    out.append(f"{t('rep.criterion').ljust(w)} | {'A':<34} | {'B':<34} | {t('rep.effect')}")
     for c in cmp.contributions:
         sign = "+" if c.points >= 0 else "-"
         side = "A" if c.points >= 0 else "B"
@@ -100,5 +97,5 @@ def text_report(cmp: Comparison) -> str:
     for tag, ev in (("A", cmp.a), ("B", cmp.b)):
         lines = warnings_of(ev) + tracks_text(ev)
         if lines:
-            out += ["", f"Fichier {tag} :", *[f"  - {l}" for l in lines]]
+            out += ["", t("rep.file", tag=tag), *[f"  - {x}" for x in lines]]
     return "\n".join(out)

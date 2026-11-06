@@ -1,4 +1,4 @@
-﻿/* VidCompare â€” interface sombre Â« cinÃ©ma Â», avec un mode noir OLED pur.
+/* VidCompare â€” interface sombre Â« cinÃ©ma Â», avec un mode noir OLED pur.
    Mise en page : menu Ã  gauche, contenu centrÃ© et aÃ©rÃ©, une idÃ©e par Ã©cran. */
 
 :root {
@@ -32,13 +32,13 @@ button { cursor: pointer; }
 .app { display: grid; grid-template-columns: 264px 1fr; height: 100vh; }
 
 /* ---------- menu de gauche ---------- */
-.side { background: var(--side); border-right: 1px solid var(--line); display: flex; flex-direction: column; padding: 28px 18px 22px; }
+.side { background: var(--side); border-inline-end: 1px solid var(--line); display: flex; flex-direction: column; padding: 28px 18px 22px; }
 .brand { display: flex; align-items: center; gap: 12px; font: 650 19px/1 var(--font-display); letter-spacing: -.01em; padding: 0 10px 30px; }
 .brand-mark { width: 30px; height: 30px; color: var(--text); }
 .nav { display: grid; gap: 4px; }
 .nav button {
   display: flex; align-items: center; gap: 14px; padding: 13px 14px; border: 0; border-radius: 14px; background: transparent;
-  color: var(--muted); font-size: 16px; font-weight: 520; text-align: left; transition: background .15s, color .15s;
+  color: var(--muted); font-size: 16px; font-weight: 520; text-align: start; transition: background .15s, color .15s;
 }
 .nav button svg { width: 22px; height: 22px; flex: none; }
 .nav button:hover { background: rgba(255,255,255,.05); color: var(--text); }
@@ -128,7 +128,7 @@ button { cursor: pointer; }
 .verdict-kicker { color: var(--muted); font-size: 15px; letter-spacing: .08em; text-transform: uppercase; font-weight: 600; }
 .verdict-title { font: 650 30px/1.2 var(--font-display); letter-spacing: -.02em; margin: 10px 0 14px; text-wrap: balance; }
 .verdict-gap { font: 700 54px/1 var(--mono); letter-spacing: -.04em; color: var(--s1); }
-.verdict-gap small { font: 500 17px var(--font); color: var(--muted); letter-spacing: 0; margin-left: 8px; }
+.verdict-gap small { font: 500 17px var(--font); color: var(--muted); letter-spacing: 0; margin-inline-start: 8px; }
 .verdict-note { margin: 16px auto 0; color: var(--muted); font-size: 14.5px; max-width: 36ch; }
 
 /* ---------- les raisons clÃ©s ---------- */
@@ -160,12 +160,12 @@ details.fold { border: 1px solid var(--line); border-radius: var(--radius); back
 details.fold + details.fold { margin-top: 14px; }
 details.fold > summary { list-style: none; cursor: pointer; padding: 22px 28px; display: flex; align-items: center; justify-content: space-between; font: 600 18px var(--font-display); }
 details.fold > summary::-webkit-details-marker { display: none; }
-details.fold > summary .hint { color: var(--muted); font: 400 15px var(--font); margin-left: 12px; }
+details.fold > summary .hint { color: var(--muted); font: 400 15px var(--font); margin-inline-start: 12px; }
 details.fold > summary .chev { width: 20px; height: 20px; color: var(--muted); transition: transform .2s var(--ease); }
 details.fold[open] > summary .chev { transform: rotate(180deg); }
 .fold-body { padding: 0 28px 26px; }
 table.t { width: 100%; border-collapse: collapse; font-size: 15px; }
-table.t th { text-align: left; color: var(--muted); font-weight: 600; font-size: 13px; letter-spacing: .06em; text-transform: uppercase; padding: 0 12px 12px 0; }
+table.t th { text-align: start; color: var(--muted); font-weight: 600; font-size: 13px; letter-spacing: .06em; text-transform: uppercase; padding: 0 0 12px 0; padding-inline-end: 12px; }
 table.t td { padding: 12px 12px 12px 0; border-top: 1px solid var(--line); vertical-align: top; }
 table.t td.sc { font-family: var(--mono); font-weight: 700; }
 .alert-list { display: grid; gap: 10px; margin: 0 0 22px; padding: 0; list-style: none; }
@@ -197,8 +197,8 @@ select.sel { height: 46px; padding: 0 16px; border-radius: 13px; background: var
 .up-title { font: 600 18px var(--font-display); margin: 0 0 12px; }
 .gainbar { display: grid; gap: 10px; }
 .gainbar .track { position: relative; height: 12px; }
-.gainbar .ghost { position: absolute; inset: 0 auto 0 0; background: rgba(45,212,167,.22); border-radius: 999px; }
-.gainbar .now { position: absolute; inset: 0 auto 0 0; border-radius: 999px; }
+.gainbar .ghost { position: absolute; inset-block: 0; inset-inline-start: 0; background: rgba(45,212,167,.22); border-radius: 999px; }
+.gainbar .now { position: absolute; inset-block: 0; inset-inline-start: 0; border-radius: 999px; }
 .gain-num { display: flex; justify-content: space-between; align-items: baseline; }
 .gain-num .big { font: 700 28px var(--mono); color: var(--s4); letter-spacing: -.03em; }
 .gain-num span { color: var(--muted); font-size: 14px; }
@@ -219,7 +219,7 @@ select.sel { height: 46px; padding: 0 16px; border-radius: 13px; background: var
 .panel .hint { color: var(--muted); font-size: 15px; margin: 0 0 22px; }
 .sliders { display: grid; gap: 18px; margin-top: 24px; }
 .slider-row { display: grid; grid-template-columns: 120px 1fr 36px; gap: 16px; align-items: center; font-size: 15.5px; }
-.slider-row .num { text-align: right; color: var(--muted); }
+.slider-row .num { text-align: end; color: var(--muted); }
 input[type=range] { -webkit-appearance: none; appearance: none; width: 100%; height: 6px; border-radius: 999px; background: rgba(255,255,255,.1); outline-offset: 8px; }
 input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 20px; height: 20px; border-radius: 50%; background: var(--btn); border: 0; box-shadow: 0 2px 8px rgba(0,0,0,.5); }
 .switches { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 28px; }
@@ -227,7 +227,7 @@ input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 20px;
 .sw { position: relative; width: 46px; height: 28px; flex: none; }
 .sw input { position: absolute; inset: 0; opacity: 0; margin: 0; cursor: pointer; }
 .sw span { position: absolute; inset: 0; border-radius: 999px; background: rgba(255,255,255,.12); transition: background .15s; pointer-events: none; }
-.sw span::after { content: ""; position: absolute; top: 3px; left: 3px; width: 22px; height: 22px; border-radius: 50%; background: #fff; transition: transform .18s var(--ease); }
+.sw span::after { content: ""; position: absolute; top: 3px; inset-inline-start: 3px; width: 22px; height: 22px; border-radius: 50%; background: #fff; transition: transform .18s var(--ease); }
 .sw input:checked + span { background: var(--s1); }
 .sw input:checked + span::after { transform: translateX(18px); background: #04110d; }
 .sw input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: 2px; }
@@ -255,7 +255,7 @@ input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 20px;
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 
 /* ---------- Ã©tats du moteur : chargement, erreurs, fenÃªtres, messages ---------- */
-.spin { display: inline-block; width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--line-strong); border-top-color: var(--accent); animation: spin .8s linear infinite; vertical-align: -2px; margin-right: 10px; }
+.spin { display: inline-block; width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--line-strong); border-top-color: var(--accent); animation: spin .8s linear infinite; vertical-align: -2px; margin-inline-end: 10px; }
 @keyframes spin { to { transform: rotate(360deg); } }
 .spin-line { display: inline-flex; align-items: center; color: var(--muted); font-size: 15px; }
 .btn:disabled { opacity: .4; cursor: not-allowed; pointer-events: none; }
@@ -286,5 +286,12 @@ input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 20px;
 .notice.alert { border-color: rgba(239,91,91,.55); background: rgba(239,91,91,.07); }
 .notice-title { font: 620 16px var(--font-display); margin-bottom: 8px; }
 .notice.alert .notice-title { color: var(--s5); }
-.notice ul { margin: 0; padding-left: 20px; display: grid; gap: 6px; color: var(--muted); font-size: 15px; }
+.notice ul { margin: 0; padding-inline-start: 20px; display: grid; gap: 6px; color: var(--muted); font-size: 15px; }
 .version { font-size: 13px; }
+
+[dir="rtl"] .sw input:checked + span::after { transform: translateX(-18px); }
+[dir="rtl"] .icon-flip { transform: scaleX(-1); }
+:lang(zh) { font-family: "Microsoft YaHei UI", "Segoe UI", sans-serif; }
+:lang(hi) { font-family: "Nirmala UI", "Segoe UI", sans-serif; }
+:lang(bn) { font-family: "Nirmala UI", "Segoe UI", sans-serif; }
+:lang(ar) { font-family: "Segoe UI", "Tahoma", sans-serif; }

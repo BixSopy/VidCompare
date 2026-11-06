@@ -1,0 +1,14 @@
+{
+  "device.dv": "Dolby Vision",
+  "device.hdr10plus": "HDR10+",
+  "device.hdr": "HDR10 / HLG",
+  "device.dts": "DTS",
+  "device.truehd": "Dolby TrueHD",
+  "device.atmos": "Atmos",
+  "device.hevc": "HEVC (H.265)",
+  "device.av1": "AV1",
+  "cat.hdr": "HDR",
+  "csv.hdr": "HDR",
+  "ui.theme_oled": "OLED",
+  "ui.group_placeholder": "GROUP"
+}

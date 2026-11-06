@@ -10,6 +10,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from urllib.parse import parse_qs, unquote_plus, urlparse
 
+from .i18n import t
 from .models import AudioTrack, MediaInfo
 from .parse_name import NameClaims, parse_name
 
@@ -43,7 +44,7 @@ class TorrentInfo:
 
 def _decode(b: bytes, i: int = 0, depth: int = 0):
     if depth > 64:
-        raise TorrentError("Fichier torrent trop imbriqué.")
+        raise TorrentError(t("tor.too_deep"))
     c = b[i:i + 1]
     if c == b"i":
         j = b.index(b"e", i)
@@ -68,16 +69,16 @@ def _decode(b: bytes, i: int = 0, depth: int = 0):
         n = int(b[i:j])
         start = j + 1
         if start + n > len(b):
-            raise TorrentError("Fichier torrent tronqué.")
+            raise TorrentError(t("tor.truncated"))
         return b[start:start + n], start + n
-    raise TorrentError("Ce fichier n'est pas un torrent valide.")
+    raise TorrentError(t("tor.invalid"))
 
 
 def bdecode(data: bytes):
     try:
         value, end = _decode(data)
     except (ValueError, IndexError) as exc:
-        raise TorrentError("Ce fichier n'est pas un torrent valide.") from exc
+        raise TorrentError(t("tor.invalid")) from exc
     return value
 
 
@@ -88,7 +89,7 @@ def _text(v) -> str:
 def parse_torrent_bytes(data: bytes) -> TorrentInfo:
     meta = bdecode(data)
     if not isinstance(meta, dict) or not isinstance(meta.get(b"info"), dict):
-        raise TorrentError("Ce fichier n'est pas un torrent valide.")
+        raise TorrentError(t("tor.invalid"))
     info = meta[b"info"]
     name = _text(info.get(b"name.utf-8") or info.get(b"name") or b"torrent")
     files: list[tuple[str, int]] = []
@@ -102,7 +103,7 @@ def parse_torrent_bytes(data: bytes) -> TorrentInfo:
     if b"announce" in meta:
         trackers.append(_text(meta[b"announce"]))
     for tier in meta.get(b"announce-list", []) or []:
-        trackers += [_text(t) for t in tier if isinstance(t, bytes)]
+        trackers += [_text(tk) for tk in tier if isinstance(tk, bytes)]
     return TorrentInfo(name=name, files=files, trackers=list(dict.fromkeys(trackers)))
 
 
@@ -113,11 +114,11 @@ def parse_torrent(path: str) -> TorrentInfo:
 def parse_magnet(uri: str) -> TorrentInfo:
     u = urlparse(uri.strip())
     if u.scheme != "magnet":
-        raise TorrentError("Ce n'est pas un lien magnet.")
+        raise TorrentError(t("tor.not_magnet"))
     q = parse_qs(u.query)
     name = unquote_plus((q.get("dn") or [""])[0]).strip()
     if not name:
-        raise TorrentError("Ce lien magnet n'indique pas de nom (paramètre dn) : rien à analyser.")
+        raise TorrentError(t("tor.magnet_no_name"))
     size = int((q.get("xl") or ["0"])[0] or 0)
     return TorrentInfo(name=name, files=[(name, size)], trackers=q.get("tr", []),
                        kind="magnet", size_known=size > 0)
@@ -156,16 +157,16 @@ def _hdr_from_claims(c: NameClaims) -> str:
     return "SDR"
 
 
-def torrent_to_media(t: TorrentInfo, runtime_min: int = DEFAULT_RUNTIME_MIN) -> MediaInfo:
-    main = t.main_file()
-    fname = posixpath.basename(main[0]) if main else t.name
+def torrent_to_media(tor: TorrentInfo, runtime_min: int = DEFAULT_RUNTIME_MIN) -> MediaInfo:
+    main = tor.main_file()
+    fname = posixpath.basename(main[0]) if main else tor.name
     size = main[1] if main else 0
-    claims = merge_claims(parse_name(t.name), parse_name(fname))
-    info = MediaInfo(path=t.name, filename=t.name, size_bytes=size, from_name=True, claims=claims,
-                     container="torrent" if t.kind == "torrent" else "magnet")
-    info.notes.append("Estimé d'après le nom du torrent : le fichier n'a pas été lu.")
-    if t.kind == "torrent" and len([f for f in t.files if Path(f[0]).suffix.lower() in VIDEO_EXT]) > 1:
-        info.notes.append("Plusieurs fichiers vidéo (saison ou lot) : seul le plus gros est analysé.")
+    claims = merge_claims(parse_name(tor.name), parse_name(fname))
+    info = MediaInfo(path=tor.name, filename=tor.name, size_bytes=size, from_name=True, claims=claims,
+                     container="torrent" if tor.kind == "torrent" else "magnet")
+    info.notes.append(t("tor.note_estimated"))
+    if tor.kind == "torrent" and len([f for f in tor.files if Path(f[0]).suffix.lower() in VIDEO_EXT]) > 1:
+        info.notes.append(t("tor.note_multi"))
 
     res = _RES.get(claims.resolution or "")
     if res:
@@ -174,7 +175,7 @@ def torrent_to_media(t: TorrentInfo, runtime_min: int = DEFAULT_RUNTIME_MIN) -> 
     codec = _CODEC.get(claims.codec or "")
     if not codec and res:
         codec = "hevc" if res[1] >= 2160 else "h264"
-        info.notes.append(f"Codec absent du nom : {('HEVC' if codec == 'hevc' else 'H.264')} supposé.")
+        info.notes.append(t("tor.note_codec", codec="HEVC" if codec == "hevc" else "H.264"))
     info.video_codec = codec
     info.hdr = _hdr_from_claims(claims) if res else None
     info.hdr10plus = "HDR10+" in claims.hdr
@@ -186,13 +187,13 @@ def torrent_to_media(t: TorrentInfo, runtime_min: int = DEFAULT_RUNTIME_MIN) -> 
         info.audio.append(AudioTrack(index=i, codec=label.lower(), label=label, channels=ch, bitrate=None,
                                      language=None, title=None, lossless=label in _LOSSLESS))
 
-    if size > 0 and t.size_known:
+    if size > 0 and tor.size_known:
         info.duration = runtime_min * 60
         total_bps = size * 8 / info.duration
         audio_bps = 3_000_000 if any(a.lossless for a in info.audio) else 600_000
         info.video_bitrate = max(int(total_bps - audio_bps), 0) or None
         info.video_bitrate_estimated = True
-        info.notes.append(f"Débit estimé avec une durée supposée de {runtime_min} min.")
+        info.notes.append(t("tor.note_runtime", min=runtime_min))
     else:
-        info.notes.append("Taille inconnue : le débit ne peut pas être estimé.")
+        info.notes.append(t("tor.note_size"))
     return info

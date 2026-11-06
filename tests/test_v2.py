@@ -149,7 +149,9 @@ def test_group_bonus_changes_score(monkeypatch):
 
 
 def test_french_audio_warning():
-    ev = evaluate(uhd_dv_dts())
-    assert any("française" in w.text for w in ev.warnings)
-    none = evaluate(make("a.mkv", [video(), audio("eac3", 6, lang="eng")]))
+    ev = evaluate(uhd_dv_dts(), lang="any")
+    assert not any("Ni piste audio ni sous-titres" in w.text for w in ev.warnings)
+    none = evaluate(make("a.mkv", [video(), audio("eac3", 6, lang="eng")]), lang="any")
     assert any("Ni piste audio ni sous-titres" in w.text for w in none.warnings)
+    off = evaluate(make("a.mkv", [video(), audio("eac3", 6, lang="eng")]))
+    assert not any("Ni piste audio ni sous-titres" in w.text for w in off.warnings)

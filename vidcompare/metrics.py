@@ -35,7 +35,7 @@ def resolution_tier(width: int | None, height: int | None) -> tuple[str, str]:
         return "720p (HD)", "hd"
     if eff >= 400:
         return "576p / 480p (DVD)", "sd"
-    return "360p et moins", "ld"
+    return "≤360p", "ld"
 
 
 def bits_per_pixel(info: MediaInfo) -> float | None:
@@ -65,8 +65,9 @@ def bitrate_score(nbpp: float) -> int:
 
 
 def fmt(x: float, digits: int = 1) -> str:
-    """Nombre à la française : virgule décimale."""
-    return f"{x:.{digits}f}".replace(".", ",")
+    """Nombre avec le séparateur décimal de la langue active (virgule en français, point en anglais...)."""
+    from .i18n import decimal_sep
+    return f"{x:.{digits}f}".replace(".", decimal_sep())
 
 
 def mbps(bits: int | None) -> float | None:

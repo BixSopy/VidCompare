@@ -3,6 +3,8 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass
 
+from .i18n import t
+
 DTS_FAMILY = {"DTS", "DTS-HD MA", "DTS-HD HRA", "DTS:X"}
 TRUEHD_FAMILY = {"TrueHD", "TrueHD Atmos"}
 
@@ -32,6 +34,20 @@ PRESETS: dict[str, Device] = {
 }
 
 
+# Les noms de modèles servent d'identifiants dans les réglages enregistrés : jamais affichés tels quels.
+PRESET_KEYS = {
+    "Sans contrainte": "preset.free",
+    "TV 4K Samsung (HDR10+, sans Dolby Vision ni DTS)": "preset.samsung",
+    "TV 4K LG OLED (Dolby Vision, sans HDR10+ ni DTS)": "preset.lg",
+    "TV Full HD sans HDR": "preset.fullhd",
+    "Personnalisé": "preset.custom",
+}
+
+
+def preset_label(preset_id: str) -> str:
+    return t(PRESET_KEYS.get(preset_id, "preset.custom"))
+
+
 def effective_hdr(label: str, dev: Device | None):
     """Renvoie (clé pour la note, texte affiché, note forcée ou None)."""
     if dev is None:
@@ -43,13 +59,13 @@ def effective_hdr(label: str, dev: Device | None):
         elif label == "DV P8.4":
             label = "HLG"
         else:
-            return "SDR", f"{label} (illisible sur votre écran)", 15
+            return "SDR", t("hdr.unreadable", label=label), 15
     if label == "HDR10+" and not dev.hdr10plus:
         label = "HDR10"
     if label in ("HDR10", "HLG") and not dev.hdr:
         label = "SDR"
     if label != shown:
-        shown = f"{shown} → lu en {label}"
+        shown = t("hdr.played_as", label=shown, eff=label)
     return label, shown, None
 
 

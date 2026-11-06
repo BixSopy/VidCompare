@@ -8,6 +8,8 @@ from __future__ import annotations
 import re
 from pathlib import PureWindowsPath
 
+from . import langs
+from .i18n import t
 from .models import AudioTrack, MediaInfo
 
 
@@ -57,6 +59,12 @@ def _sections(text: str) -> list[tuple[str, dict[str, str]]]:
             if key and key not in cur:      # on garde la première valeur (la plus générale)
                 cur[key] = m.group(2).strip()
     return out
+
+
+def _lang(name: str | None) -> str | None:
+    """Code de langue court : « French », « Français » ou « fra » donnent « fr » ; une langue inconnue garde ses deux premières lettres."""
+    name = (name or "").strip()
+    return langs.to_code(name) or (name[:2].lower() or None)
 
 
 def _number(s: str | None) -> tuple[float, str] | None:
@@ -165,13 +173,12 @@ def parse_mediainfo(text: str) -> MediaInfo:
     general = next((d for k, d in secs if k == "general"), {})
     video = next((d for k, d in secs if k == "video"), None)
     if video is None:
-        raise MediaInfoError("Rapport MediaInfo non reconnu : aucune section « Video ». "
-                             "Collez le rapport complet (vue Texte).")
-    name = general.get("name") or "rapport MediaInfo"
+        raise MediaInfoError(t("mi.unrecognized"))
+    name = general.get("name") or t("mi.default_name")
     filename = PureWindowsPath(name).name or name
     info = MediaInfo(path=name, filename=filename, size_bytes=_size(general.get("size")),
                      duration=_duration(general.get("duration")), container=general.get("format"))
-    info.notes.append("Données lues dans un rapport MediaInfo collé (le fichier lui-même n'est pas analysé).")
+    info.notes.append(t("mi.note"))
 
     fmt = (video.get("format") or "").lower()
     info.video_codec = next((code for key, code in _VIDEO_CODEC if key in fmt), fmt or None)
@@ -188,12 +195,8 @@ def parse_mediainfo(text: str) -> MediaInfo:
         ch = _number(d.get("channels"))
         info.audio.append(AudioTrack(index=i, codec=(d.get("format") or "").lower(), label=label,
                                      channels=int(ch[0]) if ch else 0, bitrate=_bitrate(d.get("bitrate")),
-                                     language=(d.get("language") or "")[:2].lower() or None
-                                     if (d.get("language") or "").lower() not in ("french", "français")
-                                     else "fr", title=d.get("title"), lossless=lossless))
-    info.subtitle_langs = [(d.get("language") or "?")[:2].lower() if (d.get("language") or "").lower()
-                           not in ("french", "français") else "fr"
-                           for k, d in secs if k == "text"]
+                                     language=_lang(d.get("language")), title=d.get("title"), lossless=lossless))
+    info.subtitle_langs = [_lang(d.get("language")) or "?" for k, d in secs if k == "text"]
 
     vbr = _bitrate(video.get("bitrate"))
     if vbr is None:

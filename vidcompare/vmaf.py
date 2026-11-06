@@ -14,6 +14,7 @@ import subprocess
 import tempfile
 from pathlib import Path
 
+from .i18n import t as tr      # « t » est déjà le nom d'un instant (en secondes) dans ce module
 from .models import MediaInfo
 from .probe import find_ffprobe
 
@@ -61,11 +62,10 @@ def _run(cmd: list[str], cwd: str | None = None, timeout: int = 600, what: str =
         p = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace",
                            cwd=cwd, creationflags=flags, timeout=timeout)
     except subprocess.TimeoutExpired:
-        raise VmafError(f"{what} : délai dépassé ({timeout // 60} min). Le fichier est très lourd ou le disque "
-                        "trop lent à cet endroit de la vidéo.") from None
+        raise VmafError(tr("vm.timeout", what=what, min=timeout // 60)) from None
     if p.returncode != 0:
         tail = (p.stderr or "").strip().splitlines()[-3:]
-        raise VmafError(f"{what} : " + (" ".join(tail) or "FFmpeg a échoué"))
+        raise VmafError(f"{what} : " + (" ".join(tail) or tr("vm.failed")))
     return p
 
 
@@ -78,9 +78,9 @@ def _frame(ffmpeg: str, info: MediaInfo, t: float, out: Path, label: str) -> Pat
     graph = (f"scale={FRAME_W}:{FRAME_H}:force_original_aspect_ratio=decrease,{_tonemap(info)}"
              f"pad={FRAME_W}:{FRAME_H}:(ow-iw)/2:(oh-ih)/2")
     _run([ffmpeg, "-v", "error", "-y", "-ss", f"{t:.2f}", *_VIDEO_ONLY, "-i", info.path,
-          "-vf", graph, "-frames:v", "1", str(out)], timeout=600, what=f"Fichier {label}")
+          "-vf", graph, "-frames:v", "1", str(out)], timeout=600, what=tr("vm.file", tag=label))
     if not out.is_file():
-        raise VmafError(f"Fichier {label} : impossible d'extraire une image à cet instant.")
+        raise VmafError(tr("vm.no_frame", tag=label))
     return out
 
 
@@ -98,7 +98,7 @@ def side_by_side(ffmpeg: str, a: MediaInfo, b: MediaInfo, t: float, out_png: Pat
         fa.result()
         fb.result()
     _run([ffmpeg, "-v", "error", "-y", "-i", str(part_a), "-i", str(part_b), "-filter_complex", "hstack",
-          "-frames:v", "1", str(out_png)], timeout=60, what="Assemblage des images")
+          "-frames:v", "1", str(out_png)], timeout=60, what=tr("vm.assemble"))
     return out_png
 
 
@@ -124,12 +124,12 @@ def measure_vmaf(ffmpeg: str, ref: MediaInfo, dist: MediaInfo, times: list[float
             _run([ffmpeg, "-v", "error", "-y", "-ss", f"{t:.2f}", "-t", str(SAMPLE_SECONDS), *_VIDEO_ONLY,
                   "-i", dist.path, "-ss", f"{t:.2f}", "-t", str(SAMPLE_SECONDS), *_VIDEO_ONLY, "-i", ref.path,
                   "-filter_complex", graph, "-f", "null", "-"], cwd=tmp, timeout=1500,
-                 what=f"Mesure VMAF (extrait {i + 1})")
+                 what=tr("vm.measure", n=i + 1))
             try:
                 data = json.loads((Path(tmp) / log).read_text(encoding="utf-8"))
                 scores.append(float(data["pooled_metrics"]["vmaf"]["mean"]))
             except (OSError, ValueError, KeyError) as exc:
-                raise VmafError("Résultat VMAF illisible (FFmpeg sans libvmaf ?).") from exc
+                raise VmafError(tr("vm.unreadable")) from exc
             if progress:
                 progress(i + 1, len(times))
     return sum(scores) / len(scores)
@@ -137,9 +137,9 @@ def measure_vmaf(ffmpeg: str, ref: MediaInfo, dist: MediaInfo, times: list[float
 
 def describe(score: float) -> str:
     if score >= 95:
-        return "quasi indiscernable"
+        return tr("vm.d_same")
     if score >= 90:
-        return "différences à peine visibles"
+        return tr("vm.d_slight")
     if score >= 80:
-        return "différences visibles"
-    return "nettement dégradé"
+        return tr("vm.d_visible")
+    return tr("vm.d_bad")

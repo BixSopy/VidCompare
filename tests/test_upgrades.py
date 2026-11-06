@@ -58,7 +58,7 @@ def test_films_and_series_are_separated_and_sorted_by_gain():
     assert films[0].gain > films[1].gain > MIN_GAIN
     assert [(s.title, s.season, s.files) for s in series] == [("Lost", 1, 2), ("Lost", 2, 1)] or \
            [(s.title, s.season, s.files) for s in series] == [("Lost", 2, 1), ("Lost", 1, 2)]
-    assert all(s.kind == "Série" for s in series) and "épisodes" in max(series, key=lambda s: s.files).display
+    assert all(s.kind == "Série" for s in series) and "2 épisode" in max(series, key=lambda s: s.files).display
 
 
 def test_improvements_name_the_biggest_gaps_first():

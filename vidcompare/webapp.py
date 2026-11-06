@@ -25,23 +25,24 @@ from dataclasses import dataclass
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
-from . import __version__
+from . import __version__, i18n
 from . import groups as groups_store
 from . import vmaf
 from .cache import Cache
-from .device import PRESETS, Device
+from .device import PRESETS, Device, preset_label
+from .i18n import t
 from .history import History
 from .mediainfo import MediaInfoError, parse_mediainfo
 from .metrics import fmt
 from .models import Evaluation, MediaInfo
 from .probe import find_ffprobe, load_media
 from .report import explanations, ranking_rows, size_line, text_report, tracks_text
-from .scoring import (CATEGORY_KEYS, CATEGORY_LABELS, DEFAULT_PROFILE, LANG_MODES, PROFILES, compare,
-                      evaluate, rank)
+from .scoring import (CATEGORY_KEYS, CATEGORY_LABELS, CUSTOM_PROFILE, DEFAULT_PROFILE, LANG_MODES,
+                      LEGACY_LANG_MODES, PROFILES, compare, evaluate, profile_label, rank)
 from .torrent import (DEFAULT_RUNTIME_MIN, VIDEO_EXT, TorrentError, TorrentInfo, parse_magnet,
                       parse_torrent, torrent_to_media)
-from .upgrades import (DEFAULT_LEVEL, LEVELS, build_suggestions, suggestion_rows, target_parts,
-                       wanted_text)
+from .upgrades import (DEFAULT_LEVEL, LEVELS, build_suggestions, level_label, suggestion_rows,
+                       target_parts, wanted_text)
 from .versions import compare_versions as vmaf_guard
 from .versions import needs_confirmation
 
@@ -69,11 +70,16 @@ def setup_logging() -> None:
     handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(message)s"))
     log.addHandler(handler)
     log.setLevel(logging.INFO)
-KIND_NAME = {"file": "Fichier", "torrent": "Torrent (estimé)", "magnet": "Magnet (estimé)",
-             "report": "Rapport MediaInfo"}
-VIDEO_TYPES = ("Vidéos (*.mkv;*.mp4;*.m4v;*.avi;*.mov;*.ts;*.m2ts;*.wmv;*.webm;*.iso)", "Tous les fichiers (*.*)")
-DEVICE_LABELS = {"dv": "Dolby Vision", "hdr10plus": "HDR10+", "hdr": "HDR10 / HLG", "dts": "DTS",
-                 "truehd": "Dolby TrueHD", "atmos": "Atmos", "hevc": "HEVC (H.265)", "av1": "AV1"}
+DEVICE_KEYS = ("dv", "hdr10plus", "hdr", "dts", "truehd", "atmos", "hevc", "av1")
+
+
+def kind_name(kind: str) -> str:
+    return t(f"kind.{kind}")
+
+
+def video_types() -> tuple[str, str]:
+    return (t("web.video_files") + " (*.mkv;*.mp4;*.m4v;*.avi;*.mov;*.ts;*.m2ts;*.wmv;*.webm;*.iso)",
+            t("web.all_files") + " (*.*)")
 
 
 def ui_dir() -> Path:
@@ -176,8 +182,21 @@ class Api:
             return Device()
 
     def _lang(self) -> str:
-        lang = self._store.get("lang", "none")
+        """Préférence de langue des pistes : none, any (audio ou sous-titres) ou audio."""
+        lang = LEGACY_LANG_MODES.get(self._store.get("lang", "none"), self._store.get("lang", "none"))
         return lang if lang in LANG_MODES else "none"
+
+    def _ui_lang(self) -> str:
+        """Langue de l'interface : celle choisie, sinon celle de Windows (si elle est proposée), sinon l'anglais."""
+        code = self._store.get("ui_lang")
+        if code not in dict(i18n.available()):
+            code = i18n.detect_system_language()
+        return code
+
+    def _content_lang(self) -> str:
+        """Langue souhaitée pour l'audio et les sous-titres : celle choisie, sinon celle de l'interface."""
+        code = self._store.get("content_lang")
+        return code if code in i18n.CODES else self._ui_lang()
 
     def _runtime(self) -> int:
         return int(self._store.get("runtime", DEFAULT_RUNTIME_MIN))
@@ -194,12 +213,12 @@ class Api:
         return torrent_to_media(item.torrent, self._runtime()) if item.torrent else item.info
 
     def _evals(self) -> dict[int, Evaluation]:
-        dev, lang = self._device(), self._lang()
+        dev, lang, code = self._device(), self._lang(), self._content_lang()
         out = {}
         for item in self._items.values():
             info = self._info_of(item)
             if info is not None:
-                out[item.id] = evaluate(info, device=dev, lang=lang)
+                out[item.id] = evaluate(info, device=dev, lang=lang, lang_code=code)
         return out
 
     # ------------------------------------------------------------------ état pour l'interface
@@ -208,14 +227,16 @@ class Api:
             return self._state()
 
     def _state(self) -> dict:
+        i18n.set_language(self._ui_lang())          # les textes produits ci-dessous sont dans la langue choisie
         evals = self._evals()
         weights = self._weights()
         ia, ib = self._slot["A"], self._slot["B"]
         state = {
             "ffmpeg": {"ok": bool(self._ffprobe()), "hasFfmpeg": bool(vmaf.find_ffmpeg(self._store.get("ffprobe")))},
             "theme": self._store.get("theme", "cinema"), "version": __version__,
+            "lang": i18n.get_language(), "rtl": i18n.is_rtl(),
             "toast": self._toast,
-            "slots": {t: self._slot_state(t, evals) for t in "AB"},
+            "slots": {tag: self._slot_state(tag, evals) for tag in "AB"},
             "result": None,
             "ranking": self._ranking_state(evals, weights),
             "library": self._library_state(weights),
@@ -235,17 +256,17 @@ class Api:
         if i is None:
             return None
         item = self._items[i]
-        d = {"name": item.label, "kind": KIND_NAME[item.kind], "status": "loading", "size": "", "chips": [], "note": ""}
+        d = {"name": item.label, "kind": kind_name(item.kind), "status": "loading", "size": "", "chips": [], "note": ""}
         if item.error:
             d.update(status="error", note=item.error)
         elif i in evals:
             ev = evals[i]
             d["status"] = "ready"
-            d["size"] = f"{fmt(ev.info.size_bytes / 1e9)} Go" if ev.info.size_bytes else ""
+            d["size"] = t("unit.gb", v=fmt(ev.info.size_bytes / 1e9)) if ev.info.size_bytes else ""
             d["chips"] = [ev.cats[k].value.split(" · ")[0] for k in ("resolution", "hdr", "audio")
                           if ev.cats[k].score is not None and ev.cats[k].value]
             if ev.info.from_name:
-                d["note"] = "Estimé d'après le nom et la taille : le fichier n'est pas lu."
+                d["note"] = t("web.estimated_note")
         return d
 
     def _result_state(self, cmp, ia: int, ib: int) -> dict:
@@ -255,11 +276,11 @@ class Api:
                 continue
             better, worse = (c.a, c.b) if c.points > 0 else (c.b, c.a)
             reasons.append({"label": c.label, "points": round(abs(c.points), 1), "who": "A" if c.points > 0 else "B",
-                            "text": f"{better.value} contre {worse.value}"})
+                            "text": t("web.vs", better=better.value, worse=worse.value)})
         warn_order = {"alert": 0, "warn": 1, "info": 2}
-        alerts = {t: [{"level": w.level, "text": w.text}
-                      for w in sorted(ev.warnings, key=lambda w: warn_order[w.level])]
-                  for t, ev in (("A", cmp.a), ("B", cmp.b))}
+        alerts = {tag: [{"level": w.level, "text": w.text}
+                        for w in sorted(ev.warnings, key=lambda w: warn_order[w.level])]
+                  for tag, ev in (("A", cmp.a), ("B", cmp.b))}
         ready = self._visual_ready()
         key = (ia, ib)
         if self._visual["key"] != key:
@@ -277,10 +298,7 @@ class Api:
             "why": explanations(cmp),
             "visual": {"available": bool(ready), "busy": self._visual["busy"], "text": self._visual["text"],
                        "error": self._visual["error"],
-                       "hint": ("Compare l'image réelle des deux fichiers sur quelques extraits. "
-                                "La mesure VMAF prend de une à quelques minutes." if ready else
-                                "Disponible pour deux fichiers vidéo de cet ordinateur (pas pour les torrents, "
-                                "magnets ou rapports MediaInfo) et si FFmpeg est installé.")},
+                       "hint": t("web.visual_hint" if ready else "web.visual_unavailable")},
         }
 
     def _ranking_state(self, evals: dict, weights: dict) -> dict:
@@ -290,8 +308,8 @@ class Api:
         rows = []
         for n, (ev, total) in enumerate(ranked, 1):
             item = self._items[by_eval[id(ev)]]
-            rows.append({"id": item.id, "rank": n, "name": item.label, "kind": KIND_NAME[item.kind],
-                         "size": f"{fmt(ev.info.size_bytes / 1e9)} Go" if ev.info.size_bytes else "?",
+            rows.append({"id": item.id, "rank": n, "name": item.label, "kind": kind_name(item.kind),
+                         "size": t("unit.gb", v=fmt(ev.info.size_bytes / 1e9)) if ev.info.size_bytes else "?",
                          "score": None if total is None else round(total, 1), "status": "ready",
                          "chips": [ev.cats[k].value.split(" · ")[0] for k in ("source", "resolution", "hdr", "audio")
                                    if ev.cats[k].score is not None],
@@ -299,7 +317,7 @@ class Api:
         for i in mine:
             if i not in evals:
                 it = self._items[i]
-                rows.append({"id": i, "rank": None, "name": it.label, "kind": KIND_NAME[it.kind], "size": "",
+                rows.append({"id": i, "rank": None, "name": it.label, "kind": kind_name(it.kind), "size": "",
                              "score": None, "chips": [], "alerts": 0,
                              "status": "error" if it.error else "loading", "note": it.error or ""})
         return {"rows": rows, "estimated": any(evals[i].info.from_name for i in mine if i in evals)}
@@ -307,28 +325,28 @@ class Api:
     def _library_state(self, weights: dict) -> dict:
         dev, level = self._device(), self._level()
         parts = target_parts(LEVELS[level], dev)
-        lib = {"folders": list(self._store.get("up_folders", [])), "level": level, "levels": list(LEVELS),
+        lib = {"folders": list(self._store.get("up_folders", [])), "level": level,
+               "levels": [[k, level_label(k)] for k in LEVELS],
                "wanted": wanted_text(parts), "scan": None, "summary": "", "films": [], "series": []}
         if self._scan:
             lib["scan"] = {k: self._scan[k] for k in ("done", "total", "cached", "failed")}
         if self._up_infos and not self._scan:
-            key = (self._up_ver, self._rev, level)
+            key = (self._up_ver, self._rev, level, i18n.get_language())
             if not self._up_cache or self._up_cache[0] != key:
-                lang = self._lang()
-                evs = [evaluate(i, device=dev, lang=lang) for i in self._up_infos]
+                lang, code = self._lang(), self._content_lang()
+                evs = [evaluate(i, device=dev, lang=lang, lang_code=code) for i in self._up_infos]
                 films, series, ok, total = build_suggestions(evs, weights, dev, level)
                 self._up_cache = (key, films, series, ok, total)
             _, films, series, ok, total = self._up_cache
             conv = lambda s: {"title": s.display, "now": round(s.current, 1), "target": round(s.target, 1),
                               "gain": round(s.gain, 1),
                               "fix": [f"{i.label} : {i.now} → {i.wanted}" for i in s.improvements],
-                              "size": f"{fmt(s.size_bytes / 1e9)} Go", "folder": s.folder}
+                              "size": t("unit.gb", v=fmt(s.size_bytes / 1e9)), "folder": s.folder}
             # Seules les premières lignes partent vers l'écran : 3000 fichiers pesaient 719 Ko à chaque envoi.
             lib["films"] = [conv(s) for s in films[: self._up_limit["films"]]]
             lib["series"] = [conv(s) for s in series[: self._up_limit["series"]]]
             lib["filmsTotal"], lib["seriesTotal"] = len(films), len(series)
-            lib["summary"] = (f"{total} fichiers analysés · {len(films)} film(s) et {len(series)} saison(s) à "
-                              f"améliorer · {ok} fichier(s) déjà au niveau visé.")
+            lib["summary"] = t("up.summary", total=total, films=len(films), seasons=len(series), ok=ok)
             lib["hasResults"] = True
         return lib
 
@@ -337,18 +355,23 @@ class Api:
         for idx, e in self._history.newest_first():
             d = e["date"]
             out.append({"id": idx, "date": d, "a": e["a"]["name"], "b": e["b"]["name"], "sa": e["a"]["score"],
-                        "sb": e["b"]["score"], "winner": e["winner"], "profile": e.get("profile", "")})
+                        "sb": e["b"]["score"], "winner": e["winner"], "profile": profile_label(e.get("profile", ""))})
         return out
 
     def _settings_state(self) -> dict:
         dev = self._device()
         w = self._weights()
         return {
-            "profile": self._store.get("profile", DEFAULT_PROFILE), "profiles": list(PROFILES) + ["Personnalisé"],
+            "profile": self._store.get("profile", DEFAULT_PROFILE),
+            "profiles": [[p, profile_label(p)] for p in (*PROFILES, CUSTOM_PROFILE)],
             "weights": [[k, CATEGORY_LABELS[k], int(w.get(k, 0))] for k in CATEGORY_KEYS],
-            "device": [[k, DEVICE_LABELS[k], bool(getattr(dev, k))] for k in DEVICE_LABELS],
-            "preset": self._store.get("preset", "Sans contrainte"), "presets": list(PRESETS) + ["Personnalisé"],
-            "maxRes": dev.max_res, "lang": self._lang(), "langs": [[k, v] for k, v in LANG_MODES.items()],
+            "device": [[k, t(f"device.{k}"), bool(getattr(dev, k))] for k in DEVICE_KEYS],
+            "preset": self._store.get("preset", "Sans contrainte"),
+            "presets": [[p, preset_label(p)] for p in (*PRESETS, "Personnalisé")],
+            "maxRes": dev.max_res, "lang": self._lang(),
+            "langs": [[k, t(f"langmode.{k}", language=i18n.info(self._content_lang())[1])] for k in LANG_MODES],
+            "uiLang": self._ui_lang(), "uiLangs": [[c, n] for c, n in i18n.available()],
+            "contentLang": self._content_lang(), "contentLangs": [[c, n] for c, n, *_ in i18n.LANGUAGES],
             "runtime": self._runtime(),
             "groups": [[n, v] for n, v in sorted(groups_store.load().items(), key=lambda kv: kv[0].lower())],
         }
@@ -418,8 +441,7 @@ class Api:
     def set_source(self, tag: str, source: str) -> dict:
         with self._lock:
             if os.path.isdir(source):
-                return self._done("C'est un dossier : une case accepte un seul fichier. "
-                                  "Pour un dossier entier, utilisez la Bibliothèque.")
+                return self._done(t("web.is_folder"))
             item = self._make_item(source)
             if item:
                 self._release(tag)
@@ -427,11 +449,11 @@ class Api:
             return self._done()
 
     def pick_video(self, tag: str) -> dict:
-        paths = self._dialog("open", file_types=VIDEO_TYPES)
+        paths = self._dialog("open", file_types=video_types())
         return self.set_source(tag, paths[0]) if paths else self.get_state()
 
     def pick_torrent(self, tag: str) -> dict:
-        paths = self._dialog("open", file_types=("Torrents (*.torrent)",))
+        paths = self._dialog("open", file_types=(t("web.torrents") + " (*.torrent)",))
         return self.set_source(tag, paths[0]) if paths else self.get_state()
 
     def set_report(self, tag: str, text: str) -> dict:
@@ -474,10 +496,10 @@ class Api:
             capped = len(files) > MAX_FOLDER_FILES
             for f in files[:MAX_FOLDER_FILES]:
                 self._make_item(f, ranked=True)
-            return self._done(f"Dossier limité aux {MAX_FOLDER_FILES} premières vidéos." if capped else None)
+            return self._done(t("web.folder_cap", n=MAX_FOLDER_FILES) if capped else None)
 
     def rank_pick(self, what: str) -> dict:
-        kinds = {"videos": ("open", VIDEO_TYPES), "torrents": ("open", ("Torrents (*.torrent)",)),
+        kinds = {"videos": ("open", video_types()), "torrents": ("open", (t("web.torrents") + " (*.torrent)",)),
                  "folder": ("folder", ())}
         mode, types = kinds[what]
         paths = self._dialog(mode, file_types=types, multiple=True)
@@ -517,7 +539,7 @@ class Api:
             evals = self._evals()
             ranked = rank([evals[i] for i, it in self._items.items() if it.ranked and i in evals], self._weights())
         if not ranked:
-            return self._done("Le classement est vide.")
+            return self._done(t("web.rank_empty"))
         return self._write_csv("classement.csv", ranking_rows(ranked))
 
     # ------------------------------------------------------------------ pistes d'amélioration
@@ -557,12 +579,12 @@ class Api:
         with self._lock:
             folders = self._store.get("up_folders", [])
             if not folders:
-                return self._done("Ajoutez d'abord au moins un dossier.")
+                return self._done(t("web.add_folder_first"))
             files = list(dict.fromkeys(self._expand(folders)))
             capped = len(files) > MAX_SCAN_FILES
             files = files[:MAX_SCAN_FILES]
             if not files:
-                return self._done("Aucune vidéo trouvée dans ces dossiers.")
+                return self._done(t("web.no_video"))
             token = object()
             self._up_limit = {"films": UP_PAGE, "series": UP_PAGE}
             self._up_infos = []
@@ -616,25 +638,25 @@ class Api:
             self._scan = None
             extra = []
             if failed:
-                extra.append(f"{failed} fichier(s) illisible(s) ignoré(s)")
+                extra.append(t("web.scan_failed", n=failed))
             if capped:
-                extra.append(f"limité aux {MAX_SCAN_FILES} premiers fichiers")
+                extra.append(t("web.scan_capped", n=MAX_SCAN_FILES))
             self._toast = ", ".join(extra) or None
         self._push()
 
     def up_cancel(self) -> dict:
         with self._lock:
             self._scan = None
-            return self._done("Analyse annulée.")
+            return self._done(t("web.scan_cancelled"))
 
     def up_export(self) -> dict:
         with self._lock:
             self.get_state()
             if not self._up_cache:
-                return self._done("Il n'y a rien à exporter : lancez d'abord une analyse.")
+                return self._done(t("web.nothing_to_export"))
             _, films, series, _, _ = self._up_cache
             rows = suggestion_rows(films, series)
-        return self._write_csv("pistes-amelioration.csv", rows) if rows else self._done("Rien à améliorer.")
+        return self._write_csv("pistes-amelioration.csv", rows) if rows else self._done(t("web.nothing_to_improve"))
 
     # ------------------------------------------------------------------ historique
     def _record_history(self, cmp, ia: int, ib: int) -> None:
@@ -659,8 +681,7 @@ class Api:
                     if s["source"].startswith("mediainfo:") or
                     (not s["source"].lower().startswith("magnet:") and not os.path.exists(s["source"]))]
             if gone:
-                return self._done("Impossible de rouvrir : fichier introuvable ou rapport collé à la main. "
-                                  + ", ".join(gone))
+                return self._done(t("web.reopen_failed", names=", ".join(gone)))
             for tag, side in (("A", e["a"]), ("B", e["b"])):
                 item = self._make_item(side["source"])
                 if item:
@@ -681,7 +702,7 @@ class Api:
 
     def hist_export(self) -> dict:
         rows = self._history.rows()
-        return self._write_csv("historique.csv", rows) if rows else self._done("L'historique est vide.")
+        return self._write_csv("historique.csv", rows) if rows else self._done(t("web.history_empty"))
 
     # ------------------------------------------------------------------ réglages
     def set_profile(self, name: str) -> dict:
@@ -719,7 +740,7 @@ class Api:
     def set_device(self, key: str, on: bool) -> dict:
         with self._lock:
             d = self._device().to_dict()
-            if key in DEVICE_LABELS:
+            if key in DEVICE_KEYS:
                 d[key] = bool(on)
                 self._save_device(Device(**d), "Personnalisé")
             return self._done()
@@ -733,10 +754,33 @@ class Api:
 
     def set_lang(self, key: str) -> dict:
         with self._lock:
+            key = LEGACY_LANG_MODES.get(key, key)
             if key in LANG_MODES:
                 self._store.set("lang", key)
                 self._rev += 1
             return self._done()
+
+    def set_ui_lang(self, code: str) -> dict:
+        """Change la langue de l'interface (et, si rien n'a été choisi à part, celle des pistes souhaitées)."""
+        with self._lock:
+            if code in dict(i18n.available()):
+                self._store.set("ui_lang", code)
+                self._rev += 1
+                self._last_recorded = None
+            return self._done()
+
+    def set_content_lang(self, code: str) -> dict:
+        with self._lock:
+            if code in i18n.CODES:
+                self._store.set("content_lang", code)
+                self._rev += 1
+            return self._done()
+
+    def get_strings(self) -> dict:
+        """Textes de l'interface dans la langue active (avec repli sur l'anglais puis le français)."""
+        with self._lock:
+            i18n.set_language(self._ui_lang())
+            return {"lang": i18n.get_language(), "rtl": i18n.is_rtl(), "strings": i18n.catalog()}
 
     def set_runtime(self, minutes: int) -> dict:
         with self._lock:
@@ -784,7 +828,7 @@ class Api:
         with self._lock:
             ready = self._visual_ready()
         if not ready:
-            return {"ok": False, "error": "Comparaison visuelle indisponible pour ces éléments."}
+            return {"ok": False, "error": t("web.visual_unavailable_short")}
         a, b, ffmpeg = ready
         times = vmaf.sample_times(a.duration, b.duration)
 
@@ -816,27 +860,23 @@ class Api:
             ref_tag = "B" if cmp.winner == "B" else "A"
             ref, dist = (a, b) if ref_tag == "A" else (b, a)
             dist_tag = "B" if ref_tag == "A" else "A"
-            self._visual.update(busy=True, text="Mesure en cours… (de une à quelques minutes)", error=False)
+            self._visual.update(busy=True, text=t("web.measuring"), error=False)
         threading.Thread(target=self._vmaf_worker, args=(ffmpeg, ref, dist, ref_tag, dist_tag), daemon=True).start()
         return self.get_state()
 
     def _vmaf_worker(self, ffmpeg, ref, dist, ref_tag, dist_tag) -> None:
         def progress(done, total):
-            self._visual["text"] = f"Mesure en cours… extrait {done} sur {total} terminé."
+            self._visual["text"] = t("web.measuring_n", done=done, total=total)
             self._push(throttle=0.5)
         try:
             times = vmaf.sample_times(ref.duration, dist.duration)
             score = vmaf.measure_vmaf(ffmpeg, ref, dist, times, progress=progress)
-            hdr = (" Attention : une vidéo est en HDR. Elle est convertie en SDR pour la mesure, et le VMAF est "
-                   "peu fiable en HDR : prenez ce score comme une indication.") if any(
-                i.hdr and i.hdr != "SDR" for i in (ref, dist)) else ""
-            text = (f"Le fichier {dist_tag} ressemble au fichier {ref_tag} à {fmt(score)} sur 100 "
-                    f"({vmaf.describe(score)}). Mesure sur {len(times)} extraits de {vmaf.SAMPLE_SECONDS} s, "
-                    f"ramenée à 1080p au plus, le fichier {ref_tag} servant de référence : un écart entre les "
-                    f"deux, pas une note absolue.{hdr}")
+            hdr = t("web.vmaf_hdr") if any(i.hdr and i.hdr != "SDR" for i in (ref, dist)) else ""
+            text = t("web.vmaf_result", dist=dist_tag, ref=ref_tag, score=fmt(score), desc=vmaf.describe(score),
+                     n=len(times), sec=vmaf.SAMPLE_SECONDS, hdr=hdr)
             err = False
         except Exception as exc:  # noqa: BLE001
-            text, err = "Erreur : " + str(exc), True
+            text, err = t("web.error_prefix") + str(exc), True
             log.warning("VMAF : %s", exc)
         with self._lock:
             self._visual.update(busy=False, text=text, error=err)
@@ -864,7 +904,7 @@ class Api:
         w.writeheader()
         w.writerows(rows)
         Path(paths[0]).write_text(buf.getvalue(), encoding="utf-8-sig", newline="")
-        return self._done("Fichier enregistré.")
+        return self._done(t("web.file_saved"))
 
     def save_report(self) -> dict:
         with self._lock:
@@ -873,10 +913,10 @@ class Api:
             if ia not in evals or ib not in evals:
                 return self._done()
             text = text_report(compare(evals[ia], evals[ib], self._weights()))
-        paths = self._dialog("save", file_types=("Texte (*.txt)",), save_name="comparaison.txt")
+        paths = self._dialog("save", file_types=(t("web.text_files") + " (*.txt)",), save_name="comparaison.txt")
         if paths:
             Path(paths[0]).write_text(text, encoding="utf-8")
-            return self._done("Rapport enregistré.")
+            return self._done(t("web.report_saved"))
         return self.get_state()
 
     def open_log_folder(self) -> dict:
@@ -886,10 +926,10 @@ class Api:
             if sys.platform == "win32" and folder.is_dir():
                 os.startfile(folder)    # noqa: S606 - dossier de l'application, pas une entrée utilisateur
                 return self._done()
-            return self._done(f"Journal : {log_path()}")
+            return self._done(t("web.log_at", path=log_path()))
 
     def pick_ffprobe(self) -> dict:
-        paths = self._dialog("open", file_types=("ffprobe (ffprobe*.exe)", "Tous les fichiers (*.*)"))
+        paths = self._dialog("open", file_types=("ffprobe (ffprobe*.exe)", t("web.all_files") + " (*.*)"))
         with self._lock:
             if paths:
                 self._store.set("ffprobe", paths[0])
@@ -904,7 +944,7 @@ def _guarded(name: str, fn):
             return fn(self, *args, **kwargs)
         except Exception as exc:  # noqa: BLE001 - dernier filet : rien ne doit planter l'interface
             log.exception("Erreur dans %s", name)
-            return {"error": f"Erreur interne ({type(exc).__name__} : {exc}). Détails dans le journal."}
+            return {"error": t("web.internal_error", kind=type(exc).__name__, msg=exc)}
     return wrapper
 
 
@@ -951,7 +991,7 @@ def run_dev(port: int = 5174) -> None:
             fn = getattr(api, name, None) if not name.startswith("_") else None
             args = json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0))) or "[]")
             try:
-                out = fn(*args) if callable(fn) else {"error": f"méthode inconnue : {name}"}
+                out = fn(*args) if callable(fn) else {"error": f"unknown method: {name}"}
             except Exception as exc:  # noqa: BLE001
                 out = {"error": str(exc)}
             body = json.dumps(out).encode()

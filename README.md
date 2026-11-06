@@ -12,6 +12,15 @@ En ligne de commande :
     lancer.bat A.mkv B.mkv          # rapport texte
     lancer.bat A.mkv B.mkv --profil "Home cinéma"
 
+## Nouveautés de la V6 (10 langues)
+
+- **Langue de l'interface** (Réglages > Langue de l'interface) : English, 中文, हिन्दी, Español, العربية, Français, বাংলা, Português, Русский, Bahasa Indonesia, soit les dix langues les plus parlées au monde (Ethnologue 2025). Au premier lancement, la langue de Windows est reprise si elle fait partie de la liste.
+- L'arabe passe l'interface en écriture de droite à gauche. Le séparateur décimal suit la langue (virgule en français, espagnol, portugais, russe, indonésien).
+- Les rapports, exports CSV et la ligne de commande (`--lang`) suivent la même langue.
+- **Langue des pistes souhaitée** (ex-« VF ») : n'importe laquelle des dix langues, indépendante de la langue de l'interface.
+- Les textes sont dans `vidcompare/locales/<code>.json`. Pour corriger ou ajouter une langue : copier `fr.json`, traduire, puis `python tools/check_locale.py <code>`.
+- **Honnêteté** : les traductions ont été produites par IA, sans relecture par des locuteurs natifs. À faire relire avant toute diffusion publique.
+
 ## Nouveautés de la V5 (fiabilité et vitesse)
 
 - **Scan deux fois plus rapide** pour les vidéos SDR : un seul appel `ffprobe` au lieu de deux (le second ne sert

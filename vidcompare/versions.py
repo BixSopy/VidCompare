@@ -6,6 +6,7 @@ pas les mêmes scènes au même moment et le résultat n'a plus de sens.
 """
 from __future__ import annotations
 
+from .i18n import t
 from .metrics import fmt
 from .models import MediaInfo, Warn
 
@@ -17,8 +18,8 @@ def fmt_duration(seconds: float) -> str:
     h, rest = divmod(s, 3600)
     m, sec = divmod(rest, 60)
     if h:
-        return f"{h} h {m:02d} min"
-    return f"{m} min {sec:02d} s" if m else f"{sec} s"
+        return t("dur.h_min", h=h, m=f"{m:02d}")
+    return t("dur.min_s", m=m, s=f"{sec:02d}") if m else t("dur.s", s=sec)
 
 
 def compare_versions(a: MediaInfo, b: MediaInfo) -> list[Warn]:
@@ -34,29 +35,25 @@ def compare_versions(a: MediaInfo, b: MediaInfo) -> list[Warn]:
         diff = abs(a.duration - b.duration)
         rel = diff / max(a.duration, b.duration)
         if diff >= 60 and rel >= 0.01:
-            out.append(Warn(
-                "alert", f"Durées différentes : A {fmt_duration(a.duration)}, B {fmt_duration(b.duration)} "
-                         f"(écart de {fmt_duration(diff)}). Ce sont probablement deux montages différents "
-                         "(version salles, director's cut, IMAX...) : les images et le VMAF compareraient "
-                         "des scènes différentes."))
+            out.append(Warn("alert", t("ver.duration", a=fmt_duration(a.duration), b=fmt_duration(b.duration),
+                                       gap=fmt_duration(diff))))
         elif diff >= 3 and rel >= 0.002:
-            out.append(Warn("info", f"Léger écart de durée ({fmt(diff)} s) : un petit décalage de début est possible."))
+            out.append(Warn("info", t("ver.small_gap", s=fmt(diff))))
 
     if a.fps and b.fps and abs(a.fps - b.fps) > 0.3:
         hint = ""
         slow, fast = sorted((a.fps, b.fps))
         if abs(fast / slow - PAL_SPEEDUP) < 0.01:
-            hint = " L'une est probablement la version 25 images/s, accélérée de 4 % (norme PAL)."
-        out.append(Warn("warn", f"Cadence différente : A {fmt(a.fps, 3)}, B {fmt(b.fps, 3)} images/s.{hint}"))
+            hint = t("ver.pal")
+        out.append(Warn("warn", t("ver.fps", a=fmt(a.fps, 3), b=fmt(b.fps, 3), hint=hint)))
 
     if a.width and a.height and b.width and b.height:
         ra, rb = a.width / a.height, b.width / b.height
         if abs(ra - rb) / max(ra, rb) > 0.04:
-            out.append(Warn("warn", f"Format d'image différent : A {fmt(ra, 2)}:1, B {fmt(rb, 2)}:1. "
-                                    "Une version peut être recadrée ou en IMAX plein cadre."))
+            out.append(Warn("warn", t("ver.aspect", a=fmt(ra, 2), b=fmt(rb, 2))))
 
     if a.chapters and b.chapters and len(a.chapters) != len(b.chapters):
-        out.append(Warn("info", f"Nombre de chapitres différent : A {len(a.chapters)}, B {len(b.chapters)}."))
+        out.append(Warn("info", t("ver.chapters", a=len(a.chapters), b=len(b.chapters))))
     return out
 
 

@@ -86,11 +86,11 @@ def test_settings_change_scores(api, tmp_path):
 
 
 def test_settings_survive_restart(api, tmp_path):
-    api.set_lang("fr_any")
+    api.set_lang("any")
     api.set_runtime(130)
     api.set_theme("oled")
     again = Api(Store(tmp_path / "r.json"), History(tmp_path / "h.json"), Cache(tmp_path / "c.json")).get_state()
-    assert again["settings"]["lang"] == "fr_any" and again["settings"]["runtime"] == 130 and again["theme"] == "oled"
+    assert again["settings"]["lang"] == "any" and again["settings"]["runtime"] == 130 and again["theme"] == "oled"
 
 
 def test_groups_crud(api):

@@ -9,6 +9,7 @@ import subprocess
 import sys
 from pathlib import Path
 
+from .i18n import t
 from .models import AudioTrack, MediaInfo
 
 
@@ -34,16 +35,14 @@ def _run(cmd: list[str]) -> dict:
     p = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8",
                        errors="replace", creationflags=flags, timeout=180)
     if p.returncode != 0:
-        raise FFprobeError(p.stderr.strip() or "ffprobe a échoué")
+        raise FFprobeError(p.stderr.strip() or t("pr.failed"))
     return json.loads(p.stdout or "{}")
 
 
 def run_ffprobe(target: str, ffprobe: str | None = None) -> dict:
     exe = find_ffprobe(ffprobe)
     if not exe:
-        raise FFprobeError(
-            "ffprobe est introuvable. Installez FFmpeg (winget install Gyan.FFmpeg) "
-            "ou indiquez l'emplacement de ffprobe.exe.")
+        raise FFprobeError(t("pr.not_found"))
     data = _run([exe, "-v", "error", "-print_format", "json",
                  "-show_format", "-show_streams", "-show_chapters", target])
     data["_first_frame"] = {}
@@ -73,7 +72,7 @@ def load_media(path: str, ffprobe: str | None = None) -> MediaInfo:
             if find_ffprobe(ffprobe) is None:
                 raise
             info = MediaInfo(path=path, filename=p.name, size_bytes=size, container="ISO", partial=True)
-            info.notes.append(f"Contenu du disque illisible par FFmpeg ({exc}). Seul le nom est analysé.")
+            info.notes.append(t("pr.iso_unreadable", error=exc))
             return info
     return parse_probe(run_ffprobe(str(p), ffprobe), path, size)
 

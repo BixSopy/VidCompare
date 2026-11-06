@@ -11,6 +11,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from .device import Device, effective_audio, effective_hdr
+from .i18n import t
 from .metrics import fmt
 from .models import Evaluation
 from .parse_name import NameClaims, parse_name
@@ -41,6 +42,13 @@ LEVELS: dict[str, Level] = {
         "BluRay encode 1080p", "1080p (Full HD)", 80, "h264", "SDR", ("DD+", "AC3"), 6),
 }
 DEFAULT_LEVEL = "Le meilleur possible (4K Remux)"
+# Les noms de niveau servent d'identifiants dans les réglages enregistrés : jamais affichés tels quels.
+LEVEL_KEYS = {"Le meilleur possible (4K Remux)": "level.best", "Très bon (4K ou BluRay)": "level.good",
+              "Correct (1080p BluRay)": "level.ok"}
+
+
+def level_label(level_id: str) -> str:
+    return t(LEVEL_KEYS.get(level_id, "level.best"))
 
 
 @dataclass
@@ -65,7 +73,7 @@ def target_parts(level: Level, dev: Device | None) -> dict[str, Part]:
     return {
         "source": Part(SOURCE_SCORES[level.source], level.source),
         "resolution": Part(RESOLUTION_SCORES[res], res.split(" (")[0]),
-        "bitrate": Part(level.bitrate, "débit élevé" if level.bitrate >= 95 else "bon débit"),
+        "bitrate": Part(level.bitrate, t("up.br_high" if level.bitrate >= 95 else "up.br_good")),
         "codec": Part(CODEC_SCORES[codec], {"hevc": "HEVC", "h264": "H.264"}.get(codec, codec)),
         "hdr": Part(forced if forced is not None else HDR_SCORES[hdr_key], hdr_key),
         "audio": Part(AUDIO_SCORES[audio], audio),
@@ -102,9 +110,9 @@ class Suggestion:
 
     @property
     def display(self) -> str:
-        if self.kind == "Série":
-            s = f"Saison {self.season}" if self.season else "Série"
-            return f"{self.title} · {s} ({self.files} épisode{'s' if self.files > 1 else ''})"
+        if self.kind == "Série":        # « Série » est l'identifiant interne du type, jamais affiché
+            s = t("up.season", n=self.season) if self.season else t("up.series")
+            return f"{self.title} · {s} ({t('up.episodes', n=self.files)})"
         return self.title
 
 
@@ -204,9 +212,10 @@ def suggestion_rows(films: list[Suggestion], series: list[Suggestion]) -> list[d
     for lst in (films, series):
         for rank_, s in enumerate(lst, 1):
             rows.append({
-                "type": s.kind, "priorite": rank_, "titre": s.title, "saison": s.season or "",
-                "fichiers": s.files, "note_actuelle": round(s.current, 1), "note_visee": round(s.target, 1),
-                "gain_possible": round(s.gain, 1), "a_ameliorer": improvement_text(s),
-                "a_viser": s.wanted, "taille_go": round(s.size_bytes / 1e9, 2), "dossier": s.folder,
+                t("csv.type"): t("csv.series" if s.kind == "Série" else "csv.film"), t("csv.priority"): rank_,
+                t("csv.title"): s.title, t("csv.season"): s.season or "", t("csv.files"): s.files,
+                t("csv.current"): round(s.current, 1), t("csv.target"): round(s.target, 1),
+                t("csv.gain"): round(s.gain, 1), t("csv.improve"): improvement_text(s),
+                t("csv.aim"): s.wanted, t("csv.size_gb"): round(s.size_bytes / 1e9, 2), t("csv.folder"): s.folder,
             })
     return rows

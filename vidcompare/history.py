@@ -54,9 +54,12 @@ class History:
             pass   # l'historique est un confort : une erreur d'écriture ne doit rien bloquer
 
     def rows(self) -> list[dict]:
+        from .i18n import t
+        from .scoring import profile_label
         out = []
         for _, e in self.newest_first():
-            out.append({"date": e["date"], "fichier_a": e["a"]["name"], "note_a": e["a"]["score"],
-                        "fichier_b": e["b"]["name"], "note_b": e["b"]["score"],
-                        "meilleur": e["winner"], "profil": e.get("profile", "")})
+            out.append({t("csv.date"): e["date"], t("csv.file_a"): e["a"]["name"], t("csv.score_a"): e["a"]["score"],
+                        t("csv.file_b"): e["b"]["name"], t("csv.score_b"): e["b"]["score"],
+                        t("csv.best"): e["winner"] if e["winner"] in ("A", "B") else t("csv.tie"),
+                        t("csv.profile"): profile_label(e.get("profile", ""))})
         return out
