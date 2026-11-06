@@ -3,7 +3,7 @@
 $ErrorActionPreference = "Stop"
 $gh = "$env:ProgramFiles\GitHub CLI\gh.exe"
 $me = (& $gh api user --jq .login)
-$ver = "6.1.1"
+$ver = "6.1.2"
 $dir = "manifests/b/BixSopy/VidCompare/$ver"
 $branch = "BixSopy.VidCompare-$ver"
 

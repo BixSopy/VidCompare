@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://aka.ms/winget-manifest.installer.1.6.0.schema.json
 PackageIdentifier: BixSopy.VidCompare
-PackageVersion: 6.1.1
+PackageVersion: 6.1.2
 InstallerType: inno
 Scope: user
 InstallModes:
@@ -15,7 +15,7 @@ Dependencies:
 ReleaseDate: 2026-11-06
 Installers:
 - Architecture: x64
-  InstallerUrl: https://github.com/BixSopy/VidCompare/releases/download/v6.1.1/VidCompare-Setup.exe
-  InstallerSha256: 6494A0FEE62097D15E613EF10B1DF8A25CF419A737431BE07DA3485B40CD92F1
+  InstallerUrl: https://github.com/BixSopy/VidCompare/releases/download/v6.1.2/VidCompare-Setup.exe
+  InstallerSha256: 50327DB08C694730150D1AAF6F16223470ACD6476AF15AAFAE026F40849ED9CF
 ManifestType: installer
 ManifestVersion: 1.6.0
