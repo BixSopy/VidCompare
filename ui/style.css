@@ -295,3 +295,4 @@ input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 20px;
 :lang(hi) { font-family: "Nirmala UI", "Segoe UI", sans-serif; }
 :lang(bn) { font-family: "Nirmala UI", "Segoe UI", sans-serif; }
 :lang(ar) { font-family: "Segoe UI", "Tahoma", sans-serif; }
+.warn-banner.upd { background: rgba(45,212,167,.1); border-bottom-color: rgba(45,212,167,.35); color: var(--accent); }

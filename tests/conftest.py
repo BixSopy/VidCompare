@@ -12,3 +12,10 @@ def _french_by_default(monkeypatch):
     from vidcompare import i18n
     monkeypatch.setattr(i18n, "detect_system_language", lambda: "fr")
     i18n.set_language("fr")
+
+
+@pytest.fixture(autouse=True)
+def _no_network(monkeypatch):
+    """Aucun test ne doit joindre GitHub."""
+    from vidcompare import updates
+    monkeypatch.setattr(updates, "fetch_latest", lambda current, timeout=5.0: None)

@@ -279,6 +279,9 @@
         <section class="card panel"><h3>${esc(T("ui.set_torrents"))}</h3><p class="hint">${esc(T("ui.set_torrents_hint"))}</p>
           <div class="field"><span>${esc(T("ui.duration"))}</span><div class="stepper"><button data-act="runtime" data-d="-10" aria-label="${esc(T("ui.less"))}">−</button><span class="num">${esc(T("unit.min", { n: s.runtime }))}</span><button data-act="runtime" data-d="10" aria-label="${esc(T("ui.more"))}">+</button></div></div>
           ${S.ffmpeg.ok ? "" : `<div class="field" style="margin-top:22px"><span>${esc(T("ui.ffprobe_missing"))}</span>${btn("pick-ffprobe", T("ui.pick_ffprobe"), "", "small")}</div>`}</section>
+        <section class="card panel" style="grid-column:1/-1"><h3>${esc(T("ui.set_update"))}</h3><p class="hint">${esc(T("ui.set_update_hint"))}</p>
+          <div class="row-between"><label class="switch"><span>${esc(T("ui.update_auto"))}</span><span class="sw"><input type="checkbox" data-act="update-auto" ${S.updateCheck ? "checked" : ""}><span></span></span></label>
+          ${btn("update-check", T("ui.update_check"), "", "small")}</div></section>
         <section class="card panel" style="grid-column:1/-1"><div class="row-between"><div><h3>${esc(T("ui.diag"))}</h3><p class="hint" style="margin-bottom:0">${esc(T("ui.diag_hint", { version: S.version }))}</p></div>
           ${btn("open-log", T("ui.open_log"), "", "small")}</div></section>
         <section class="card panel" style="grid-column:1/-1"><div class="row-between"><div><h3>${esc(T("ui.set_groups"))}</h3><p class="hint" style="margin-bottom:0">${esc(T("ui.set_groups_hint"))}</p></div>
@@ -300,7 +303,8 @@
     $("#ffmpeg-status").innerHTML = S.ffmpeg.ok ? `<i class="dot ok"></i><span>${esc(T("ui.ffmpeg_ready"))}</span>` : `<i class="dot bad"></i><span>${esc(T("ui.ffmpeg_missing"))}</span>`;
     const banner = S.ffmpeg.ok ? "" : `<div class="warn-banner"><span>${esc(T("ui.ffmpeg_banner"))}</span>${btn("pick-ffprobe", T("ui.pick_ffprobe"), "", "small")}</div>`;
     const main = $("#main");
-    main.innerHTML = banner + VIEWS[ui.view]();
+    const upd = S.update ? `<div class="warn-banner upd"><span>${esc(T("ui.update_banner", { version: S.update.version }))}</span>${btn("update-open", T("ui.update_get"), "", "small")}</div>` : "";
+    main.innerHTML = banner + upd + VIEWS[ui.view]();
     if (ui.animate) requestAnimationFrame(() => requestAnimationFrame(() => {
       $$(".ring .value, .mini-ring .value", main).forEach((c) => (c.style.strokeDashoffset = c.dataset.offset));
       $$(".fill[data-w]", main).forEach((f) => (f.style.width = f.dataset.w + "%"));
@@ -343,6 +347,8 @@
     }
     if (a === "up-more") return act("up_more", d.kind);
     if (a === "open-log") return act("open_log_folder");
+    if (a === "update-check") return act("check_update");
+    if (a === "update-open") return act("open_update_page");
     if (a === "save-report") return act("save_report");
     if (a === "rank-pick") return inApp() ? act("rank_pick", d.v) : ask.path(T("ui.path_any"), (v) => act("rank_add", [v]));
     if (a === "rank-magnet") return ask.magnet((v) => act("rank_add_magnet", v));
@@ -376,6 +382,7 @@
     if (!a) return;
     if (a === "weight") act("set_weight", el.dataset.key, Number(el.value));
     else if (a === "device") act("set_device", el.dataset.key, el.checked);
+    else if (a === "update-auto") act("set_update_check", el.checked);
     else if (a === "preset") act("set_preset", el.value);
     else if (a === "up-level") act("up_set_level", el.value);
     else if (a === "ui-lang") act("set_ui_lang", el.value);

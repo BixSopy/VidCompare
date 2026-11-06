@@ -1,5 +1,8 @@
 # Changelog
 
+## 6.1.0
+- Update check: banner when a newer release exists on GitHub. Once a day at launch, or on demand in Settings > Updates. Can be turned off.
+
 ## 6.0.0
 - Interface, reports, CSV exports and CLI in 10 languages (en, zh, hi, es, ar, fr, bn, pt, ru, id), with a language setting and right-to-left layout for Arabic.
 - Preferred track language works for all ten languages.

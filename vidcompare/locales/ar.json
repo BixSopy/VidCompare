@@ -37,7 +37,6 @@
   "profile.cinema": "سينما منزلية",
   "profile.sdr": "شاشة SDR",
   "profile.custom": "مخصص",
-
   "adjust.group": "سمعة المجموعة",
   "adjust.lang": "اللغة",
   "adjust.lang_no_audio": "لا يوجد مسار صوتي بهذه اللغة",
@@ -65,7 +64,6 @@
   "src.remux_low": "يعلن الاسم أنه Remux، لكن معدل بت الفيديو {what} هو {vbr} Mb/s فقط (الـ Remux يتجاوز {min} Mb/s). تم تصحيح المصدر إلى « {label} ».",
   "src.what_est": "المقدَّر حسب الحجم",
   "src.what_file": "للملف",
-
   "chk.atmos_unconfirmed": "تم الإعلان عن {claimed}، لكن ffprobe يشير إلى {base} فقط. لا يتم دائما اكتشاف Atmos في الإصدارات القديمة.",
   "chk.audio_missing": "يعلن الاسم عن {claimed}، وهو غير موجود بين المسارات الصوتية.",
   "chk.bitrate_estimated": "معدل بت الفيديو مقدَّر (الملف لا يذكره): درجة معدل البت أقل دقة.",
@@ -92,7 +90,6 @@
   "ver.fps": "معدل الإطارات مختلف: A {a}، B {b} إطار/ث.{hint}",
   "ver.pal": " ربما إحداهما نسخة 25 إطارا/ث، مسرَّعة بنسبة 4% (معيار PAL).",
   "ver.small_gap": "فارق بسيط في المدة ({s} ث): قد يكون هناك إزاحة صغيرة في البداية.",
-
   "rep.criterion": "المعيار",
   "rep.effect": "الأثر",
   "rep.file": "الملف {tag}:",
@@ -109,7 +106,6 @@
   "rep.track": "صوت {lang}: {label}، {ch} قنوات{br}",
   "rep.winner_a": "الملف A أفضل جودة، بفارق {gap} نقطة.",
   "rep.winner_b": "الملف B أفضل جودة، بفارق {gap} نقطة.",
-
   "csv.rank": "rank",
   "csv.name": "name",
   "csv.score": "score",
@@ -143,7 +139,6 @@
   "csv.best": "best",
   "csv.tie": "تعادل",
   "csv.profile": "profile",
-
   "up.br_good": "معدل بت جيد",
   "up.br_high": "معدل بت مرتفع",
   "up.episodes": "{n} حلقة",
@@ -177,7 +172,6 @@
   "vm.no_frame": "الملف {tag}: تعذر استخراج صورة في هذه اللحظة.",
   "vm.timeout": "{what}: انتهت المهلة ({min} د). الملف ضخم جدا أو القرص بطيء جدا عند هذا الموضع من الفيديو.",
   "vm.unreadable": "نتيجة VMAF غير قابلة للقراءة (FFmpeg بدون libvmaf؟).",
-
   "web.add_folder_first": "أضف مجلدا واحدا على الأقل أولا.",
   "web.all_files": "كل الملفات",
   "web.error_prefix": "خطأ: ",
@@ -208,7 +202,6 @@
   "web.vs": "{better} مقابل {worse}",
   "web.vmaf_hdr": " تنبيه: أحد الفيديوهين بصيغة HDR. يتم تحويله إلى SDR للقياس، وVMAF أقل موثوقية مع HDR: اعتبر هذه الدرجة مؤشرا فقط.",
   "web.vmaf_result": "الملف {dist} يشبه الملف {ref} بنسبة {score} من 100 ({desc}). القياس على {n} مقاطع مدة كل منها {sec} ث، بدقة لا تتجاوز 1080p، والملف {ref} هو المرجع: إنه فارق بين الاثنين وليس درجة مطلقة.{hdr}",
-
   "cli.alerts": "{n} تنبيه",
   "cli.audio_pref": "none: بدون تفضيل، any: صوت أو ترجمة باللغة، audio: الصوت إلزامي",
   "cli.description": "يقارن جودة ملفات الفيديو أو التورنت أو روابط Magnet.",
@@ -220,7 +213,6 @@
   "cli.output": "يكتب التقرير في هذا الملف النصي بدل عرضه",
   "cli.ranking_title": "الترتيب (الدرجة من 100)",
   "cli.runtime": "المدة المفترضة بالدقائق لتقدير معدل بت التورنت",
-
   "ui.add": "إضافة",
   "ui.add_folder": "مجلد",
   "ui.add_folder_btn": "إضافة مجلد",
@@ -374,5 +366,14 @@
   "ui.vmaf_confirm_body": "إذا لم يعرض الملفان المشاهد نفسها في اللحظة نفسها، فلا معنى للدرجة. قِس فقط إذا كنت متأكدا أنه المونتاج نفسه.",
   "ui.vmaf_confirm_ok": "قياس على أي حال",
   "ui.vmaf_confirm_title": "يُرجَّح اختلاف المونتاج",
-  "ui.vmaf_tip": "VMAF: مقياس من Netflix يعطي درجة من 0 إلى 100 لمدى تشابه فيديو مع آخر"
+  "ui.vmaf_tip": "VMAF: مقياس من Netflix يعطي درجة من 0 إلى 100 لمدى تشابه فيديو مع آخر",
+  "ui.update_banner": "الإصدار {version} متاح.",
+  "ui.update_get": "عرض التحديث",
+  "ui.set_update": "التحديثات",
+  "ui.set_update_hint": "يمكن لـ VidCompare التحقق من وجود إصدار أحدث. يرسل طلبًا واحدًا إلى github.com دون أي بيانات شخصية.",
+  "ui.update_auto": "التحقق تلقائيًا عند التشغيل (مرة في اليوم)",
+  "ui.update_check": "تحقق الآن",
+  "web.update_failed": "تعذر الاتصال بـ GitHub للتحقق من التحديثات.",
+  "web.update_available": "الإصدار {version} متاح.",
+  "web.update_none": "لديك أحدث إصدار ({version})."
 }

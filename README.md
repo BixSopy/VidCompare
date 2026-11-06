@@ -4,7 +4,7 @@
 
 Compare the quality of two video files, torrents, magnet links or pasted MediaInfo reports. VidCompare gives each a score out of 100 and says which one is better, and why.
 
-Everything runs on your PC. No file is uploaded, no network request is made ([privacy](PRIVACY.md)).
+Everything runs on your PC. No file is uploaded. The only network request is an optional daily check for a newer version, which you can turn off ([privacy](PRIVACY.md)).
 
 ## What it looks at
 

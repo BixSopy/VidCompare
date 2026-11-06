@@ -366,5 +366,14 @@
   "ui.vmaf_confirm_body": "Se os dois arquivos não mostram as mesmas cenas no mesmo instante, a pontuação não significa nada. Meça somente se tiver certeza de que é a mesma edição.",
   "ui.vmaf_confirm_ok": "Medir mesmo assim",
   "ui.vmaf_confirm_title": "Provavelmente edições diferentes",
-  "ui.vmaf_tip": "VMAF: medida da Netflix que avalia de 0 a 100 o quanto um vídeo se parece com outro"
+  "ui.vmaf_tip": "VMAF: medida da Netflix que avalia de 0 a 100 o quanto um vídeo se parece com outro",
+  "ui.update_banner": "A versão {version} está disponível.",
+  "ui.update_get": "Ver a atualização",
+  "ui.set_update": "Atualizações",
+  "ui.set_update_hint": "O VidCompare pode verificar se existe uma versão mais recente. Ele faz uma única solicitação ao github.com e não envia dados pessoais.",
+  "ui.update_auto": "Verificar automaticamente ao iniciar (uma vez por dia)",
+  "ui.update_check": "Verificar agora",
+  "web.update_failed": "Não foi possível acessar o GitHub para verificar atualizações.",
+  "web.update_available": "A versão {version} está disponível.",
+  "web.update_none": "Você já tem a versão mais recente ({version})."
 }

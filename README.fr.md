@@ -3,7 +3,7 @@
 # VidCompare
 
 Compare la qualité de deux fichiers vidéo locaux et donne une note sur 100 à chacun.
-Tout se passe sur votre PC : aucun envoi de fichier.
+Tout se passe sur votre PC : aucun envoi de fichier. Seule requête réseau : la recherche de mise à jour (une fois par jour, désactivable dans les Réglages).
 
 ## Lancer
 

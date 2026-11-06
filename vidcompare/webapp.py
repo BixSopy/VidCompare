@@ -19,13 +19,14 @@ import shutil
 import sys
 import tempfile
 import threading
+import webbrowser
 import time
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
-from . import __version__, i18n
+from . import __version__, i18n, updates
 from . import groups as groups_store
 from . import vmaf
 from .cache import Cache
@@ -157,6 +158,10 @@ class Api:
         self._frames_cache: dict[tuple, dict] = {}
         self._toast: str | None = None
         log.info("VidCompare %s démarré", __version__)
+        self._update: dict | None = None      # {'version', 'url'} si une version plus récente existe
+        self._update_msg: str | None = None
+        if self._store.get("update_check", True):
+            self._pool.submit(self._auto_update_check)
 
     @staticmethod
     def _sweep_old_temp() -> None:
@@ -234,6 +239,7 @@ class Api:
         state = {
             "ffmpeg": {"ok": bool(self._ffprobe()), "hasFfmpeg": bool(vmaf.find_ffmpeg(self._store.get("ffprobe")))},
             "theme": self._store.get("theme", "cinema"), "version": __version__,
+            "update": self._update, "updateCheck": bool(self._store.get("update_check", True)),
             "lang": i18n.get_language(), "rtl": i18n.is_rtl(),
             "toast": self._toast,
             "slots": {tag: self._slot_state(tag, evals) for tag in "AB"},
@@ -918,6 +924,46 @@ class Api:
             Path(paths[0]).write_text(text, encoding="utf-8")
             return self._done(t("web.report_saved"))
         return self.get_state()
+
+    def _auto_update_check(self) -> None:
+        """Au plus un contrôle par jour, sans bloquer le démarrage."""
+        now = time.time()
+        if now - float(self._store.get("update_checked_at", 0)) < updates.INTERVAL:
+            return
+        found = updates.fetch_latest(__version__)
+        if found is None:
+            return
+        with self._lock:
+            self._store.set("update_checked_at", now)
+            if updates.is_newer(found["version"], __version__):
+                self._update = found
+
+    def set_update_check(self, on: bool) -> dict:
+        with self._lock:
+            self._store.set("update_check", bool(on))
+            if not on:
+                self._update = None
+            return self._done()
+
+    def check_update(self) -> dict:
+        """Contrôle demandé par l'utilisateur (bouton) : ignore le délai de 24 h."""
+        found = updates.fetch_latest(__version__)
+        with self._lock:
+            if found is None:
+                return self._done(t("web.update_failed"))
+            self._store.set("update_checked_at", time.time())
+            if updates.is_newer(found["version"], __version__):
+                self._update = found
+                return self._done(t("web.update_available", version=found["version"]))
+            self._update = None
+            return self._done(t("web.update_none", version=__version__))
+
+    def open_update_page(self) -> dict:
+        with self._lock:
+            url = (self._update or {}).get("url", "")
+            if url.startswith(updates.RELEASE_PREFIX):
+                webbrowser.open(url)
+            return self._done()
 
     def open_log_folder(self) -> dict:
         """Ouvre le dossier du journal d'erreurs dans l'Explorateur."""

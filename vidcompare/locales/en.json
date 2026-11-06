@@ -366,5 +366,14 @@
   "ui.vmaf_confirm_body": "If the two files do not show the same scenes at the same moment, the score is meaningless. Only measure if you know it is the same cut.",
   "ui.vmaf_confirm_ok": "Measure anyway",
   "ui.vmaf_confirm_title": "Probably different cuts",
-  "ui.vmaf_tip": "VMAF: a Netflix metric that rates from 0 to 100 how closely one video resembles another"
+  "ui.vmaf_tip": "VMAF: a Netflix metric that rates from 0 to 100 how closely one video resembles another",
+  "ui.update_banner": "Version {version} is available.",
+  "ui.update_get": "See the update",
+  "ui.set_update": "Updates",
+  "ui.set_update_hint": "VidCompare can check whether a newer version exists. It makes one request to github.com and sends no personal data.",
+  "ui.update_auto": "Check automatically at launch (once a day)",
+  "ui.update_check": "Check now",
+  "web.update_failed": "Could not reach GitHub to check for updates.",
+  "web.update_available": "Version {version} is available.",
+  "web.update_none": "You have the latest version ({version})."
 }

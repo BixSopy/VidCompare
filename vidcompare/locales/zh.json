@@ -366,5 +366,14 @@
   "ui.vmaf_confirm_body": "如果两个文件在同一时间点显示的不是相同场景，分数就没有意义。仅在确定是同一剪辑版本时才测量。",
   "ui.vmaf_confirm_ok": "仍然测量",
   "ui.vmaf_confirm_title": "可能是不同的剪辑版本",
-  "ui.vmaf_tip": "VMAF：Netflix 的评测指标，以 0 到 100 分衡量一段视频与另一段的相似程度"
+  "ui.vmaf_tip": "VMAF：Netflix 的评测指标，以 0 到 100 分衡量一段视频与另一段的相似程度",
+  "ui.update_banner": "版本 {version} 已发布。",
+  "ui.update_get": "查看更新",
+  "ui.set_update": "更新",
+  "ui.set_update_hint": "VidCompare 可以检查是否有新版本。只会向 github.com 发送一次请求，不发送任何个人数据。",
+  "ui.update_auto": "启动时自动检查（每天一次）",
+  "ui.update_check": "立即检查",
+  "web.update_failed": "无法连接 GitHub 检查更新。",
+  "web.update_available": "版本 {version} 已发布。",
+  "web.update_none": "您已使用最新版本（{version}）。"
 }
